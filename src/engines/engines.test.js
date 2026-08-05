@@ -35,9 +35,6 @@ describe('round robin', () => {
   })
 
   it('breaks points ties by head-to-head', () => {
-    const p = players(3)
-    // p1 beats p2, p2 beats p3, p3 beats p1 — full circle, all 3 pts.
-    // Then p1 also gets a draw vs p2 in a rematch? Keep simple: craft 4 players.
     const q = players(4)
     const m = (a, b, winner) => ({ id: `${a}${b}`, round: 1, player1Id: a, player2Id: b, result: { winner } })
     // p1 and p2 both finish on 6 pts; p1 beat p2 head-to-head.
