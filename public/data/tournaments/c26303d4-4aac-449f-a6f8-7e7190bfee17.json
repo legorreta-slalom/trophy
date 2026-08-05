@@ -1,0 +1,28 @@
+{
+  "players": [
+    {
+      "id": "c4557704-aa30-4eba-941c-dd9f49d70289",
+      "name": "lego"
+    },
+    {
+      "id": "36016e96-0ac6-4f85-9391-ec19aff94258",
+      "name": "Ariel"
+    }
+  ],
+  "matches": [
+    {
+      "id": "c04aade9-c6c2-46ae-8e76-b551ece58b17",
+      "round": 1,
+      "player1Id": "c4557704-aa30-4eba-941c-dd9f49d70289",
+      "player2Id": "36016e96-0ac6-4f85-9391-ec19aff94258",
+      "result": null
+    }
+  ],
+  "id": "c26303d4-4aac-449f-a6f8-7e7190bfee17",
+  "name": "test",
+  "gameId": "036c97bb-5707-405c-8698-1d0616fde67e",
+  "format": "round-robin",
+  "startDate": "2026-08-06",
+  "endDate": "2026-08-07",
+  "status": "active"
+}

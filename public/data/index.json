@@ -1,1 +1,11 @@
-[]
+[
+  {
+    "id": "c26303d4-4aac-449f-a6f8-7e7190bfee17",
+    "name": "test",
+    "gameId": "036c97bb-5707-405c-8698-1d0616fde67e",
+    "format": "round-robin",
+    "status": "active",
+    "startDate": "2026-08-06",
+    "endDate": "2026-08-07"
+  }
+]
