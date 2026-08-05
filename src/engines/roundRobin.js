@@ -29,15 +29,18 @@ export function computeStandings(players, matches) {
   for (const m of matches) {
     if (!m.result) continue
     const p1 = stats[m.player1Id]
-    const p2 = stats[m.player2Id]
-    p1.played++
-    p2.played++
+    const p2 = stats[m.player2Id] // undefined for Swiss byes (player2Id null)
+    if (p1) p1.played++
+    if (p2) p2.played++
     if (m.result.winner === 'draw') {
-      p1.d++; p1.pts++; p2.d++; p2.pts++
+      if (p1) { p1.d++; p1.pts++ }
+      if (p2) { p2.d++; p2.pts++ }
     } else if (m.result.winner === 'player1') {
-      p1.w++; p1.pts += 3; p2.l++
+      if (p1) { p1.w++; p1.pts += 3 }
+      if (p2) p2.l++
     } else {
-      p2.w++; p2.pts += 3; p1.l++
+      if (p2) { p2.w++; p2.pts += 3 }
+      if (p1) p1.l++
     }
   }
   return players

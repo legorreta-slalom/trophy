@@ -4,6 +4,7 @@ import {
   makeStyles, tokens,
   Title2, Body1Strong, Body1, Caption1,
   Button, Input, Field,
+  Dropdown, Option,
   Badge,
   TabList, Tab,
   Table, TableHeader, TableRow, TableHeaderCell, TableBody, TableCell, TableCellActions,
@@ -14,6 +15,7 @@ import { getTournaments, saveTournament, getGames } from '../store.js'
 import { FORMATS, STATUS_APPEARANCE } from '../constants.js'
 import * as RR from '../engines/roundRobin.js'
 import * as SE from '../engines/singleElimination.js'
+import * as SW from '../engines/swiss.js'
 
 const useStyles = makeStyles({
   header: {
@@ -140,10 +142,10 @@ function RoundRobinView({ tournament, playerById, onResult }) {
                 <div className={styles.matchPlayers}>
                   <Body1 className={m.result?.winner === 'player1' ? styles.resultWinner : ''}>{p1?.name ?? '?'}</Body1>
                   <Caption1 className={styles.matchVs}>vs</Caption1>
-                  <Body1 className={m.result?.winner === 'player2' ? styles.resultWinner : ''}>{p2?.name ?? '?'}</Body1>
+                  <Body1 className={m.result?.winner === 'player2' ? styles.resultWinner : ''}>{m.player2Id === null ? 'Bye' : p2?.name ?? '?'}</Body1>
                 </div>
                 {m.result ? (
-                  <Caption1>{m.result.winner === 'draw' ? 'Draw' : m.result.winner === 'player1' ? `${p1?.name} wins` : `${p2?.name} wins`}</Caption1>
+                  <Caption1>{m.player2Id === null ? 'Bye' : m.result.winner === 'draw' ? 'Draw' : m.result.winner === 'player1' ? `${p1?.name} wins` : `${p2?.name} wins`}</Caption1>
                 ) : (
                   <div className={styles.matchResult}>
                     <Button size="small" onClick={() => onResult(m.id, { winner: 'player1' })}>{p1?.name}</Button>
@@ -192,6 +194,75 @@ function StandingsView({ tournament, playerById }) {
         </TableBody>
       </Table>
     </div>
+  )
+}
+
+function LeaderboardView({ tournament, playerById, onRecord }) {
+  const styles = useStyles()
+  const [p1Id, setP1Id] = useState('')
+  const [p2Id, setP2Id] = useState('')
+
+  const players = tournament.players
+  const canRecord = p1Id && p2Id && p1Id !== p2Id
+  const recent = [...tournament.matches].reverse()
+
+  function record(winner) {
+    onRecord(p1Id, p2Id, { winner })
+    setP1Id('')
+    setP2Id('')
+  }
+
+  return (
+    <>
+      {tournament.status === 'active' && (
+        <div className={styles.rosterAdd}>
+          <Field label="Player 1">
+            <Dropdown
+              placeholder="Select"
+              value={playerById[p1Id]?.name ?? ''}
+              selectedOptions={p1Id ? [p1Id] : []}
+              onOptionSelect={(_, { optionValue }) => setP1Id(optionValue)}
+              style={{ minWidth: '160px' }}
+            >
+              {players.map(p => <Option key={p.id} value={p.id} disabled={p.id === p2Id}>{p.name}</Option>)}
+            </Dropdown>
+          </Field>
+          <Field label="Player 2">
+            <Dropdown
+              placeholder="Select"
+              value={playerById[p2Id]?.name ?? ''}
+              selectedOptions={p2Id ? [p2Id] : []}
+              onOptionSelect={(_, { optionValue }) => setP2Id(optionValue)}
+              style={{ minWidth: '160px' }}
+            >
+              {players.map(p => <Option key={p.id} value={p.id} disabled={p.id === p1Id}>{p.name}</Option>)}
+            </Dropdown>
+          </Field>
+          <Button disabled={!canRecord} onClick={() => record('player1')}>{playerById[p1Id]?.name ?? 'P1'} wins</Button>
+          <Button disabled={!canRecord} onClick={() => record('draw')}>Draw</Button>
+          <Button disabled={!canRecord} onClick={() => record('player2')}>{playerById[p2Id]?.name ?? 'P2'} wins</Button>
+        </div>
+      )}
+
+      {recent.length === 0 ? (
+        <Body1>No results recorded yet.</Body1>
+      ) : (
+        recent.map(m => {
+          const p1 = playerById[m.player1Id]
+          const p2 = playerById[m.player2Id]
+          return (
+            <div key={m.id} className={styles.matchRow}>
+              <div className={styles.matchPlayers}>
+                <Body1 className={m.result?.winner === 'player1' ? styles.resultWinner : ''}>{p1?.name ?? '?'}</Body1>
+                <Caption1 className={styles.matchVs}>vs</Caption1>
+                <Body1 className={m.result?.winner === 'player2' ? styles.resultWinner : ''}>{p2?.name ?? '?'}</Body1>
+              </div>
+              <Caption1>{m.result.winner === 'draw' ? 'Draw' : m.result.winner === 'player1' ? `${p1?.name} wins` : `${p2?.name} wins`}</Caption1>
+            </div>
+          )
+        })
+      )}
+    </>
   )
 }
 
@@ -289,11 +360,23 @@ export default function TournamentDetail() {
   }
 
   function start() {
-    const matches = tournament.format === 'single-elimination'
-      ? SE.generate(tournament.players)
-      : RR.generate(tournament.players)
+    const { format, players } = tournament
+    const matches =
+      format === 'single-elimination' ? SE.generate(players)
+      : format === 'swiss' ? SW.generateNextRound(players, [])
+      : format === 'leaderboard' ? []
+      : RR.generate(players)
     save({ ...tournament, status: 'active', matches })
-    setSelectedTab(tournament.format === 'round-robin' ? 'matches' : 'bracket')
+    setSelectedTab(format === 'single-elimination' ? 'bracket' : 'matches')
+  }
+
+  function generateNextSwissRound() {
+    save({ ...tournament, matches: SW.generateNextRound(tournament.players, tournament.matches) })
+  }
+
+  function handleLeaderboardRecord(player1Id, player2Id, result) {
+    const match = { id: crypto.randomUUID(), round: 1, player1Id, player2Id, result }
+    save({ ...tournament, matches: [...tournament.matches, match] })
   }
 
   function finish() {
@@ -313,8 +396,20 @@ export default function TournamentDetail() {
   const game = games.find(g => g.id === tournament.gameId)
   const formatLabel = FORMATS.find(f => f.value === tournament.format)?.label ?? tournament.format
   const playerById = Object.fromEntries(tournament.players.map(p => [p.id, p]))
-  const isRR = tournament.format === 'round-robin'
-  const complete = isRR ? RR.isComplete(tournament.matches) : SE.isComplete(tournament.matches)
+  const { format } = tournament
+  const isBracket = format === 'single-elimination'
+  const isSwiss = format === 'swiss'
+  const isLeaderboard = format === 'leaderboard'
+  const hasStandings = !isBracket
+  const complete =
+    isBracket ? SE.isComplete(tournament.matches)
+    : isSwiss ? SW.isComplete(tournament.players, tournament.matches)
+    : isLeaderboard ? tournament.matches.length > 0
+    : RR.isComplete(tournament.matches)
+  const swissCanAdvance = isSwiss
+    && tournament.status === 'active'
+    && SW.currentRound(tournament.matches) < SW.totalRounds(tournament.players.length)
+    && SW.roundComplete(tournament.matches, SW.currentRound(tournament.matches))
 
   return (
     <>
@@ -352,9 +447,9 @@ export default function TournamentDetail() {
         onTabSelect={(_, { value }) => setSelectedTab(value)}
       >
         <Tab value="players">Players {tournament.players.length > 0 ? `(${tournament.players.length})` : ''}</Tab>
-        {tournament.status !== 'upcoming' && isRR && <Tab value="matches">Matches</Tab>}
-        {tournament.status !== 'upcoming' && isRR && <Tab value="standings">Standings</Tab>}
-        {tournament.status !== 'upcoming' && !isRR && <Tab value="bracket">Bracket</Tab>}
+        {tournament.status !== 'upcoming' && !isBracket && <Tab value="matches">{isLeaderboard ? 'Results' : 'Matches'}</Tab>}
+        {tournament.status !== 'upcoming' && hasStandings && <Tab value="standings">Standings</Tab>}
+        {tournament.status !== 'upcoming' && isBracket && <Tab value="bracket">Bracket</Tab>}
       </TabList>
 
       <div className={styles.tabContent}>
@@ -406,8 +501,19 @@ export default function TournamentDetail() {
           </>
         )}
 
-        {selectedTab === 'matches' && (
-          <RoundRobinView tournament={tournament} playerById={playerById} onResult={handleRRResult} />
+        {selectedTab === 'matches' && isLeaderboard && (
+          <LeaderboardView tournament={tournament} playerById={playerById} onRecord={handleLeaderboardRecord} />
+        )}
+
+        {selectedTab === 'matches' && !isLeaderboard && (
+          <>
+            <RoundRobinView tournament={tournament} playerById={playerById} onResult={handleRRResult} />
+            {swissCanAdvance && (
+              <Button appearance="primary" onClick={generateNextSwissRound}>
+                Generate round {SW.currentRound(tournament.matches) + 1} of {SW.totalRounds(tournament.players.length)}
+              </Button>
+            )}
+          </>
         )}
 
         {selectedTab === 'standings' && (
