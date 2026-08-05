@@ -17,6 +17,8 @@ import * as RR from '../engines/roundRobin.js'
 import * as SE from '../engines/singleElimination.js'
 import * as SW from '../engines/swiss.js'
 import * as GK from '../engines/groupKnockout.js'
+import * as SP from '../engines/seasonPlayoffs.js'
+import * as CF from '../engines/conferenceFinals.js'
 
 const useStyles = makeStyles({
   header: {
@@ -267,13 +269,13 @@ function LeaderboardView({ tournament, playerById, onRecord }) {
   )
 }
 
-function GroupsView({ tournament, playerById, onResult }) {
+function GroupsView({ tournament, playerById, onResult, groupLabel = (g) => `Group ${g}` }) {
   const styles = useStyles()
   return (
     <>
       {GK.groupNames(tournament.matches).map(g => (
         <div key={g} className={styles.roundSection}>
-          <Title3 style={{ display: 'block', marginBottom: '12px' }}>Group {g}</Title3>
+          <Title3 style={{ display: 'block', marginBottom: '12px' }}>{groupLabel(g)}</Title3>
           <div style={{ display: 'flex', gap: '48px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
             <div style={{ flex: '1 1 320px' }}>
               <RoundRobinView
@@ -394,17 +396,24 @@ export default function TournamentDetail() {
       : format === 'swiss' ? SW.generateNextRound(players, [])
       : format === 'leaderboard' ? []
       : format === 'group-knockout' ? GK.generateGroups(players)
+      : format === 'season-playoffs' ? SP.generateSeason(players)
+      : format === 'conference-finals' ? CF.generateConferences(players)
       : RR.generate(players)
     save({ ...tournament, status: 'active', matches })
     setSelectedTab(
       format === 'single-elimination' ? 'bracket'
-      : format === 'group-knockout' ? 'groups'
+      : format === 'group-knockout' || format === 'conference-finals' ? 'groups'
       : 'matches'
     )
   }
 
   function advanceToKnockout() {
-    save({ ...tournament, matches: GK.generateKnockout(tournament.players, tournament.matches) })
+    const { format, players, matches } = tournament
+    const updated =
+      format === 'group-knockout' ? GK.generateKnockout(players, matches)
+      : format === 'season-playoffs' ? SP.generatePlayoffs(players, matches)
+      : CF.generateFinals(players, matches)
+    save({ ...tournament, matches: updated })
     setSelectedTab('bracket')
   }
 
@@ -446,22 +455,32 @@ export default function TournamentDetail() {
   const isSwiss = format === 'swiss'
   const isLeaderboard = format === 'leaderboard'
   const isGK = format === 'group-knockout'
-  const hasStandings = !isBracket && !isGK
-  const minPlayers = isGK ? GK.MIN_PLAYERS : 2
+  const isSP = format === 'season-playoffs'
+  const isCF = format === 'conference-finals'
+  const isGrouped = isGK || isCF
+  const hasStandings = !isBracket && !isGrouped
+  const minPlayers = isGK ? GK.MIN_PLAYERS : isSP ? SP.MIN_PLAYERS : isCF ? CF.MIN_PLAYERS : 2
   const complete =
     isBracket ? SE.isComplete(tournament.matches)
     : isSwiss ? SW.isComplete(tournament.players, tournament.matches)
     : isLeaderboard ? tournament.matches.length > 0
-    : isGK ? GK.isComplete(tournament.matches)
+    : isGK || isCF ? GK.isComplete(tournament.matches)
+    : isSP ? SP.isComplete(tournament.matches)
     : RR.isComplete(tournament.matches)
   const swissCanAdvance = isSwiss
     && tournament.status === 'active'
     && SW.currentRound(tournament.matches) < SW.totalRounds(tournament.players.length)
     && SW.roundComplete(tournament.matches, SW.currentRound(tournament.matches))
-  const gkCanAdvance = isGK
-    && tournament.status === 'active'
-    && GK.groupsComplete(tournament.matches)
-    && !GK.knockoutStarted(tournament.matches)
+  const knockoutHasStarted =
+    isGK || isCF ? GK.knockoutStarted(tournament.matches)
+    : isSP ? SP.playoffsStarted(tournament.matches)
+    : false
+  const phaseCanAdvance = tournament.status === 'active' && !knockoutHasStarted && (
+    (isGK || isCF) ? GK.groupsComplete(tournament.matches)
+    : isSP ? SP.seasonComplete(tournament.matches)
+    : false
+  )
+  const advanceLabel = isGK ? 'Advance to knockout' : isSP ? 'Start playoffs' : 'Start finals'
 
   return (
     <>
@@ -488,8 +507,8 @@ export default function TournamentDetail() {
           {tournament.status === 'upcoming' && tournament.players.length >= minPlayers && (
             <Button appearance="primary" onClick={start}>Start tournament</Button>
           )}
-          {gkCanAdvance && (
-            <Button appearance="primary" onClick={advanceToKnockout}>Advance to knockout</Button>
+          {phaseCanAdvance && (
+            <Button appearance="primary" onClick={advanceToKnockout}>{advanceLabel}</Button>
           )}
           {tournament.status === 'active' && complete && (
             <Button appearance="primary" onClick={finish}>Finish tournament</Button>
@@ -502,10 +521,12 @@ export default function TournamentDetail() {
         onTabSelect={(_, { value }) => setSelectedTab(value)}
       >
         <Tab value="players">Players {tournament.players.length > 0 ? `(${tournament.players.length})` : ''}</Tab>
-        {tournament.status !== 'upcoming' && !isBracket && !isGK && <Tab value="matches">{isLeaderboard ? 'Results' : 'Matches'}</Tab>}
+        {tournament.status !== 'upcoming' && !isBracket && !isGrouped && <Tab value="matches">{isLeaderboard ? 'Results' : isSP ? 'Season' : 'Matches'}</Tab>}
         {tournament.status !== 'upcoming' && hasStandings && <Tab value="standings">Standings</Tab>}
-        {tournament.status !== 'upcoming' && isGK && <Tab value="groups">Groups</Tab>}
-        {tournament.status !== 'upcoming' && (isBracket || (isGK && GK.knockoutStarted(tournament.matches))) && <Tab value="bracket">Bracket</Tab>}
+        {tournament.status !== 'upcoming' && isGrouped && <Tab value="groups">{isCF ? 'Conferences' : 'Groups'}</Tab>}
+        {tournament.status !== 'upcoming' && (isBracket || knockoutHasStarted) && (
+          <Tab value="bracket">{isSP ? 'Playoffs' : isCF ? 'Finals' : 'Bracket'}</Tab>
+        )}
       </TabList>
 
       <div className={styles.tabContent}>
@@ -563,7 +584,11 @@ export default function TournamentDetail() {
 
         {selectedTab === 'matches' && !isLeaderboard && (
           <>
-            <RoundRobinView matches={tournament.matches} playerById={playerById} onResult={handleRRResult} />
+            <RoundRobinView
+              matches={isSP ? SP.seasonMatches(tournament.matches) : tournament.matches}
+              playerById={playerById}
+              onResult={handleRRResult}
+            />
             {swissCanAdvance && (
               <Button appearance="primary" onClick={generateNextSwissRound}>
                 Generate round {SW.currentRound(tournament.matches) + 1} of {SW.totalRounds(tournament.players.length)}
@@ -573,18 +598,26 @@ export default function TournamentDetail() {
         )}
 
         {selectedTab === 'standings' && (
-          <StandingsView players={tournament.players} matches={tournament.matches} />
+          <StandingsView
+            players={tournament.players}
+            matches={isSP ? SP.seasonMatches(tournament.matches) : tournament.matches}
+          />
         )}
 
         {selectedTab === 'groups' && (
-          <GroupsView tournament={tournament} playerById={playerById} onResult={handleRRResult} />
+          <GroupsView
+            tournament={tournament}
+            playerById={playerById}
+            onResult={handleRRResult}
+            groupLabel={isCF ? (g) => `${g} Conference` : undefined}
+          />
         )}
 
         {selectedTab === 'bracket' && (
           <BracketView
-            matches={isGK ? GK.knockoutMatches(tournament.matches) : tournament.matches}
+            matches={isBracket ? tournament.matches : GK.knockoutMatches(tournament.matches)}
             playerById={playerById}
-            onResult={isGK ? handleKOResult : handleSEResult}
+            onResult={isBracket ? handleSEResult : handleKOResult}
           />
         )}
       </div>

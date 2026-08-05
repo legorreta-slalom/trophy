@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local progress review artifacts
+progress.html
+progress-shots/
+scripts/seeds/
