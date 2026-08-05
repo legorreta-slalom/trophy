@@ -34,6 +34,13 @@ npm run dev
 
 Push to `main`. The GitHub Actions workflow builds and deploys to GitHub Pages automatically.
 
+## Publishing Tournament Data
+
+Two options, both in the sidebar:
+
+- **Publish** — commits `data/` files straight to your repo via the GitHub API. Needs a personal access token with `contents: write` (stored only in your browser's localStorage).
+- **Export data** — downloads `trophy-data.zip`; unzip into your repo root and commit manually.
+
 ## Design Philosophy
 
 TROPHY is deliberately minimal. No auth, no cloud sync, no real-time multiplayer. The office is the network.

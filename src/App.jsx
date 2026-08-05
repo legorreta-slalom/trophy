@@ -1,15 +1,18 @@
+import { useState } from 'react'
 import { Routes, Route, NavLink } from 'react-router-dom'
 import {
   makeStyles, tokens,
-  Title3, Body1Strong, Body1,
-  Button, Tooltip,
+  Title3, Body1Strong, Body1, Caption1,
+  Button, Tooltip, Input, Field,
+  Dialog, DialogSurface, DialogTitle, DialogBody, DialogActions, DialogContent, DialogTrigger,
+  Spinner,
 } from '@fluentui/react-components'
-import { TrophyFilled, ArrowDownloadRegular } from '@fluentui/react-icons'
+import { TrophyFilled, ArrowDownloadRegular, CloudArrowUpRegular } from '@fluentui/react-icons'
 import Tournaments from './pages/Tournaments.jsx'
 import TournamentDetail from './pages/TournamentDetail.jsx'
 import Games from './pages/Games.jsx'
 import JSZip from 'jszip'
-import { getGames, getTournaments } from './store.js'
+import { buildDataFiles, getPublishSettings, savePublishSettings, publishToGitHub } from './publish.js'
 
 const useStyles = makeStyles({
   root: {
@@ -71,23 +74,10 @@ const useStyles = makeStyles({
 })
 
 async function exportData() {
-  const games = getGames()
-  const tournaments = getTournaments()
   const zip = new JSZip()
-  const data = zip.folder('data')
-
-  data.file('games.json', JSON.stringify(games, null, 2))
-  data.file('index.json', JSON.stringify(
-    tournaments.map(({ id, name, gameId, format, status, startDate, endDate }) =>
-      ({ id, name, gameId, format, status, startDate, endDate })
-    ), null, 2
-  ))
-
-  const tournamentFolder = data.folder('tournaments')
-  for (const t of tournaments) {
-    tournamentFolder.file(`${t.id}.json`, JSON.stringify(t, null, 2))
+  for (const [path, content] of Object.entries(buildDataFiles())) {
+    zip.file(path, content)
   }
-
   const blob = await zip.generateAsync({ type: 'blob' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -97,8 +87,75 @@ async function exportData() {
   URL.revokeObjectURL(url)
 }
 
+function PublishDialog({ open, onClose }) {
+  const [settings, setSettings] = useState(getPublishSettings)
+  const [state, setState] = useState({ phase: 'idle' }) // idle | publishing | done | error
+
+  function set(field, value) { setSettings(s => ({ ...s, [field]: value })) }
+
+  const valid = /^[\w.-]+\/[\w.-]+$/.test(settings.repo) && settings.branch.trim() && settings.token.trim()
+
+  async function publish() {
+    savePublishSettings(settings)
+    setState({ phase: 'publishing' })
+    try {
+      const sha = await publishToGitHub(settings)
+      setState({ phase: 'done', sha })
+    } catch (err) {
+      setState({ phase: 'error', message: err.message })
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(_, { open }) => !open && onClose()}>
+      <DialogSurface style={{ maxWidth: '440px' }}>
+        <DialogBody>
+          <DialogTitle>Publish to GitHub</DialogTitle>
+          <DialogContent>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <Field label="Repository" hint="owner/name, e.g. legorreta-slalom/trophy" required>
+                <Input value={settings.repo} onChange={(_, { value }) => set('repo', value)} placeholder="owner/repo" />
+              </Field>
+              <Field label="Branch" required>
+                <Input value={settings.branch} onChange={(_, { value }) => set('branch', value)} />
+              </Field>
+              <Field label="Personal access token" hint="Needs contents: write on the repo. Stored only in your browser." required>
+                <Input type="password" value={settings.token} onChange={(_, { value }) => set('token', value)} />
+              </Field>
+              {state.phase === 'done' && (
+                <Caption1 style={{ color: tokens.colorPaletteGreenForeground1 }}>
+                  Published — commit {state.sha.slice(0, 7)}. GitHub Pages will rebuild shortly.
+                </Caption1>
+              )}
+              {state.phase === 'error' && (
+                <Caption1 style={{ color: tokens.colorPaletteRedForeground1 }}>
+                  {state.message}
+                </Caption1>
+              )}
+            </div>
+          </DialogContent>
+          <DialogActions>
+            <DialogTrigger disableButtonEnhancement>
+              <Button appearance="secondary">Close</Button>
+            </DialogTrigger>
+            <Button
+              appearance="primary"
+              disabled={!valid || state.phase === 'publishing'}
+              icon={state.phase === 'publishing' ? <Spinner size="tiny" /> : <CloudArrowUpRegular />}
+              onClick={publish}
+            >
+              {state.phase === 'publishing' ? 'Publishing…' : 'Publish'}
+            </Button>
+          </DialogActions>
+        </DialogBody>
+      </DialogSurface>
+    </Dialog>
+  )
+}
+
 export default function App() {
   const styles = useStyles()
+  const [publishOpen, setPublishOpen] = useState(false)
   return (
     <div className={styles.root}>
       <aside className={styles.sidebar}>
@@ -127,6 +184,19 @@ export default function App() {
         </nav>
         <div className={styles.exportArea}>
           <Tooltip
+            content="Commit data/ files to your GitHub repo directly. Pages rebuilds automatically."
+            relationship="description"
+          >
+            <Button
+              appearance="subtle"
+              icon={<CloudArrowUpRegular />}
+              onClick={() => setPublishOpen(true)}
+              style={{ width: '100%', justifyContent: 'flex-start' }}
+            >
+              <Body1>Publish</Body1>
+            </Button>
+          </Tooltip>
+          <Tooltip
             content="Download trophy-data.zip. Unzip into your repo root and commit to publish."
             relationship="description"
           >
@@ -140,6 +210,7 @@ export default function App() {
             </Button>
           </Tooltip>
         </div>
+        <PublishDialog open={publishOpen} onClose={() => setPublishOpen(false)} />
       </aside>
       <main className={styles.main}>
         <Routes>
