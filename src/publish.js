@@ -1,19 +1,21 @@
 import { getGames, getTournaments } from './store.js'
 
 // Map of repo path → file content, used by both ZIP export and GitHub publish.
+// Files live under public/ so Vite copies them into the built site, where the
+// app (and spectators) fetch them at <base>/data/.
 export function buildDataFiles() {
   const games = getGames()
   const tournaments = getTournaments()
   const files = {
-    'data/games.json': JSON.stringify(games, null, 2),
-    'data/index.json': JSON.stringify(
+    'public/data/games.json': JSON.stringify(games, null, 2),
+    'public/data/index.json': JSON.stringify(
       tournaments.map(({ id, name, gameId, format, status, startDate, endDate }) =>
         ({ id, name, gameId, format, status, startDate, endDate })
       ), null, 2
     ),
   }
   for (const t of tournaments) {
-    files[`data/tournaments/${t.id}.json`] = JSON.stringify(t, null, 2)
+    files[`public/data/tournaments/${t.id}.json`] = JSON.stringify(t, null, 2)
   }
   return files
 }

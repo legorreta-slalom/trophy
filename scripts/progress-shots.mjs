@@ -1,10 +1,10 @@
 // Screenshot helper for progress.html — seeds demo data and captures pages.
-// Usage: node scripts/progress-shots.mjs <name> <path> [seedFile]
+// Usage: node scripts/progress-shots.mjs <name> <path> [seedFile] [tabText]
 // Screenshots land in progress-shots/<name>.png
 import puppeteer from 'puppeteer-core'
 import { readFileSync, mkdirSync } from 'fs'
 
-const [name, path, seedFile] = process.argv.slice(2)
+const [name, path, seedFile, tabText] = process.argv.slice(2)
 const BASE = 'http://localhost:5173/trophy'
 
 mkdirSync('progress-shots', { recursive: true })
@@ -27,7 +27,17 @@ if (seedFile) {
 }
 
 await page.goto(`${BASE}${path ?? '/'}`, { waitUntil: 'networkidle0' })
-await new Promise(r => setTimeout(r, 600))
+await new Promise(r => setTimeout(r, 500))
+
+if (tabText) {
+  await page.evaluate((text) => {
+    const tab = [...document.querySelectorAll('[role="tab"]')]
+      .find(t => t.textContent.trim().startsWith(text))
+    tab?.click()
+  }, tabText)
+  await new Promise(r => setTimeout(r, 500))
+}
+
 await page.screenshot({ path: `progress-shots/${name}.png` })
 await browser.close()
 console.log(`progress-shots/${name}.png`)
