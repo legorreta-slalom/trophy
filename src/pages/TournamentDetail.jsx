@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   makeStyles, tokens,
-  Title2, Body1Strong, Body1, Caption1,
+  Title2, Title3, Body1Strong, Body1, Caption1,
   Button, Input, Field,
   Dropdown, Option,
   Badge,
@@ -16,6 +16,7 @@ import { FORMATS, STATUS_APPEARANCE } from '../constants.js'
 import * as RR from '../engines/roundRobin.js'
 import * as SE from '../engines/singleElimination.js'
 import * as SW from '../engines/swiss.js'
+import * as GK from '../engines/groupKnockout.js'
 
 const useStyles = makeStyles({
   header: {
@@ -121,10 +122,10 @@ function roundLabel(round, maxRound) {
   return `Round ${round}`
 }
 
-function RoundRobinView({ tournament, playerById, onResult }) {
+function RoundRobinView({ matches, playerById, onResult }) {
   const styles = useStyles()
   const rounds = {}
-  for (const m of tournament.matches) {
+  for (const m of matches) {
     if (!rounds[m.round]) rounds[m.round] = []
     rounds[m.round].push(m)
   }
@@ -162,9 +163,9 @@ function RoundRobinView({ tournament, playerById, onResult }) {
   )
 }
 
-function StandingsView({ tournament, playerById }) {
+function StandingsView({ players, matches }) {
   const styles = useStyles()
-  const rows = RR.computeStandings(tournament.players, tournament.matches)
+  const rows = RR.computeStandings(players, matches)
   return (
     <div className={styles.standingsTable}>
       <Table>
@@ -266,9 +267,36 @@ function LeaderboardView({ tournament, playerById, onRecord }) {
   )
 }
 
-function BracketView({ tournament, playerById, onResult }) {
+function GroupsView({ tournament, playerById, onResult }) {
   const styles = useStyles()
-  const matches = tournament.matches
+  return (
+    <>
+      {GK.groupNames(tournament.matches).map(g => (
+        <div key={g} className={styles.roundSection}>
+          <Title3 style={{ display: 'block', marginBottom: '12px' }}>Group {g}</Title3>
+          <div style={{ display: 'flex', gap: '48px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <div style={{ flex: '1 1 320px' }}>
+              <RoundRobinView
+                matches={GK.groupMatches(tournament.matches, g)}
+                playerById={playerById}
+                onResult={onResult}
+              />
+            </div>
+            <div style={{ flex: '0 1 420px' }}>
+              <StandingsView
+                players={GK.groupPlayers(tournament.players, tournament.matches, g)}
+                matches={GK.groupMatches(tournament.matches, g)}
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+    </>
+  )
+}
+
+function BracketView({ matches, playerById, onResult }) {
+  const styles = useStyles()
   if (!matches.length) return null
 
   const maxRound = Math.max(...matches.map(m => m.round))
@@ -365,9 +393,19 @@ export default function TournamentDetail() {
       format === 'single-elimination' ? SE.generate(players)
       : format === 'swiss' ? SW.generateNextRound(players, [])
       : format === 'leaderboard' ? []
+      : format === 'group-knockout' ? GK.generateGroups(players)
       : RR.generate(players)
     save({ ...tournament, status: 'active', matches })
-    setSelectedTab(format === 'single-elimination' ? 'bracket' : 'matches')
+    setSelectedTab(
+      format === 'single-elimination' ? 'bracket'
+      : format === 'group-knockout' ? 'groups'
+      : 'matches'
+    )
+  }
+
+  function advanceToKnockout() {
+    save({ ...tournament, matches: GK.generateKnockout(tournament.players, tournament.matches) })
+    setSelectedTab('bracket')
   }
 
   function generateNextSwissRound() {
@@ -393,6 +431,13 @@ export default function TournamentDetail() {
     save({ ...tournament, matches: SE.advanceWinners(updated) })
   }
 
+  // Knockout results in group-knockout: advance winners within the knockout subset only.
+  function handleKOResult(matchId, result) {
+    const updated = tournament.matches.map(m => m.id === matchId ? { ...m, result } : m)
+    const ko = SE.advanceWinners(updated.filter(m => m.phase === 'knockout'))
+    save({ ...tournament, matches: [...updated.filter(m => m.phase !== 'knockout'), ...ko] })
+  }
+
   const game = games.find(g => g.id === tournament.gameId)
   const formatLabel = FORMATS.find(f => f.value === tournament.format)?.label ?? tournament.format
   const playerById = Object.fromEntries(tournament.players.map(p => [p.id, p]))
@@ -400,16 +445,23 @@ export default function TournamentDetail() {
   const isBracket = format === 'single-elimination'
   const isSwiss = format === 'swiss'
   const isLeaderboard = format === 'leaderboard'
-  const hasStandings = !isBracket
+  const isGK = format === 'group-knockout'
+  const hasStandings = !isBracket && !isGK
+  const minPlayers = isGK ? GK.MIN_PLAYERS : 2
   const complete =
     isBracket ? SE.isComplete(tournament.matches)
     : isSwiss ? SW.isComplete(tournament.players, tournament.matches)
     : isLeaderboard ? tournament.matches.length > 0
+    : isGK ? GK.isComplete(tournament.matches)
     : RR.isComplete(tournament.matches)
   const swissCanAdvance = isSwiss
     && tournament.status === 'active'
     && SW.currentRound(tournament.matches) < SW.totalRounds(tournament.players.length)
     && SW.roundComplete(tournament.matches, SW.currentRound(tournament.matches))
+  const gkCanAdvance = isGK
+    && tournament.status === 'active'
+    && GK.groupsComplete(tournament.matches)
+    && !GK.knockoutStarted(tournament.matches)
 
   return (
     <>
@@ -433,8 +485,11 @@ export default function TournamentDetail() {
           </div>
         </div>
         <div className={styles.headerActions}>
-          {tournament.status === 'upcoming' && tournament.players.length >= 2 && (
+          {tournament.status === 'upcoming' && tournament.players.length >= minPlayers && (
             <Button appearance="primary" onClick={start}>Start tournament</Button>
+          )}
+          {gkCanAdvance && (
+            <Button appearance="primary" onClick={advanceToKnockout}>Advance to knockout</Button>
           )}
           {tournament.status === 'active' && complete && (
             <Button appearance="primary" onClick={finish}>Finish tournament</Button>
@@ -447,9 +502,10 @@ export default function TournamentDetail() {
         onTabSelect={(_, { value }) => setSelectedTab(value)}
       >
         <Tab value="players">Players {tournament.players.length > 0 ? `(${tournament.players.length})` : ''}</Tab>
-        {tournament.status !== 'upcoming' && !isBracket && <Tab value="matches">{isLeaderboard ? 'Results' : 'Matches'}</Tab>}
+        {tournament.status !== 'upcoming' && !isBracket && !isGK && <Tab value="matches">{isLeaderboard ? 'Results' : 'Matches'}</Tab>}
         {tournament.status !== 'upcoming' && hasStandings && <Tab value="standings">Standings</Tab>}
-        {tournament.status !== 'upcoming' && isBracket && <Tab value="bracket">Bracket</Tab>}
+        {tournament.status !== 'upcoming' && isGK && <Tab value="groups">Groups</Tab>}
+        {tournament.status !== 'upcoming' && (isBracket || (isGK && GK.knockoutStarted(tournament.matches))) && <Tab value="bracket">Bracket</Tab>}
       </TabList>
 
       <div className={styles.tabContent}>
@@ -493,9 +549,9 @@ export default function TournamentDetail() {
                 </TableBody>
               </Table>
             )}
-            {tournament.status === 'upcoming' && tournament.players.length < 2 && (
+            {tournament.status === 'upcoming' && tournament.players.length < minPlayers && (
               <Caption1 style={{ color: tokens.colorNeutralForeground3, display: 'block', marginTop: '12px' }}>
-                Add at least 2 players to start.
+                Add at least {minPlayers} players to start.
               </Caption1>
             )}
           </>
@@ -507,7 +563,7 @@ export default function TournamentDetail() {
 
         {selectedTab === 'matches' && !isLeaderboard && (
           <>
-            <RoundRobinView tournament={tournament} playerById={playerById} onResult={handleRRResult} />
+            <RoundRobinView matches={tournament.matches} playerById={playerById} onResult={handleRRResult} />
             {swissCanAdvance && (
               <Button appearance="primary" onClick={generateNextSwissRound}>
                 Generate round {SW.currentRound(tournament.matches) + 1} of {SW.totalRounds(tournament.players.length)}
@@ -517,11 +573,19 @@ export default function TournamentDetail() {
         )}
 
         {selectedTab === 'standings' && (
-          <StandingsView tournament={tournament} playerById={playerById} />
+          <StandingsView players={tournament.players} matches={tournament.matches} />
+        )}
+
+        {selectedTab === 'groups' && (
+          <GroupsView tournament={tournament} playerById={playerById} onResult={handleRRResult} />
         )}
 
         {selectedTab === 'bracket' && (
-          <BracketView tournament={tournament} playerById={playerById} onResult={handleSEResult} />
+          <BracketView
+            matches={isGK ? GK.knockoutMatches(tournament.matches) : tournament.matches}
+            playerById={playerById}
+            onResult={isGK ? handleKOResult : handleSEResult}
+          />
         )}
       </div>
     </>
