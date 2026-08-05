@@ -13,7 +13,8 @@ TROPHY runs entirely in the browser. No server, no database, no infrastructure. 
 
 ## Tech Stack
 
-- **Framework:** React
+- **Framework:** React + Vite
+- **UI / Design system:** Microsoft Fluent 2 — use `@fluentui/react-components` (v9). No other component library, no custom design system.
 - **Backend (if ever needed):** .NET — but assume you never need it
 - **Storage:** localStorage + GitHub-hosted JSON
 - **Hosting:** GitHub Pages
