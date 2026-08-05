@@ -7,13 +7,15 @@ import {
   Dialog, DialogSurface, DialogTitle, DialogBody, DialogActions, DialogContent, DialogTrigger,
   Spinner,
 } from '@fluentui/react-components'
-import { TrophyFilled, ArrowDownloadRegular, CloudArrowUpRegular, LockOpenRegular } from '@fluentui/react-icons'
+import { TrophyFilled, ArrowDownloadRegular, CloudArrowUpRegular, LockOpenRegular, ArrowSyncRegular } from '@fluentui/react-icons'
 import Tournaments from './pages/Tournaments.jsx'
 import TournamentDetail from './pages/TournamentDetail.jsx'
 import Games from './pages/Games.jsx'
+import HallOfFame from './pages/HallOfFame.jsx'
 import JSZip from 'jszip'
 import { buildDataFiles, getPublishSettings, savePublishSettings, publishToGitHub, getAccess } from './publish.js'
 import { decryptToken } from './pinCrypto.js'
+import { pullPublished } from './hydrate.js'
 
 const MOBILE = '@media (max-width: 640px)'
 
@@ -226,10 +228,56 @@ function UnlockDialog({ open, onClose, onUnlocked }) {
   )
 }
 
+function PullDialog({ open, onClose }) {
+  const [state, setState] = useState({ phase: 'idle' })
+
+  async function pull() {
+    setState({ phase: 'pulling' })
+    try {
+      await pullPublished()
+      window.location.reload()
+    } catch (err) {
+      setState({ phase: 'error', message: err.message })
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(_, { open }) => !open && onClose()}>
+      <DialogSurface style={{ maxWidth: '400px' }}>
+        <DialogBody>
+          <DialogTitle>Pull latest published data?</DialogTitle>
+          <DialogContent>
+            <Body1>This replaces everything in this browser with the currently published version. Unpublished local changes are lost.</Body1>
+            {state.phase === 'error' && (
+              <Caption1 style={{ color: tokens.colorPaletteRedForeground1, display: 'block', marginTop: '8px' }}>
+                {state.message}
+              </Caption1>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <DialogTrigger disableButtonEnhancement>
+              <Button appearance="secondary">Cancel</Button>
+            </DialogTrigger>
+            <Button
+              appearance="primary"
+              disabled={state.phase === 'pulling'}
+              icon={state.phase === 'pulling' ? <Spinner size="tiny" /> : <ArrowSyncRegular />}
+              onClick={pull}
+            >
+              {state.phase === 'pulling' ? 'Pulling…' : 'Pull latest'}
+            </Button>
+          </DialogActions>
+        </DialogBody>
+      </DialogSurface>
+    </Dialog>
+  )
+}
+
 export default function App() {
   const styles = useStyles()
   const [publishOpen, setPublishOpen] = useState(false)
   const [unlockOpen, setUnlockOpen] = useState(false)
+  const [pullOpen, setPullOpen] = useState(false)
   const [canReport, setCanReport] = useState(() => Boolean(getAccess()) && !getPublishSettings().token)
   return (
     <div className={styles.root}>
@@ -256,6 +304,14 @@ export default function App() {
           >
             <Body1Strong>Games</Body1Strong>
           </NavLink>
+          <NavLink
+            to="/hall-of-fame"
+            className={({ isActive }) =>
+              `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`
+            }
+          >
+            <Body1Strong>Hall of Fame</Body1Strong>
+          </NavLink>
         </nav>
         <div className={styles.exportArea}>
           {canReport && (
@@ -270,6 +326,16 @@ export default function App() {
               </Button>
             </Tooltip>
           )}
+          <Tooltip content="Fetch the latest published data into this browser." relationship="description">
+            <Button
+              appearance="subtle"
+              icon={<ArrowSyncRegular />}
+              onClick={() => setPullOpen(true)}
+              className={styles.sideButton}
+            >
+              <Body1 className={styles.sideButtonLabel}>Pull latest</Body1>
+            </Button>
+          </Tooltip>
           <Tooltip
             content="Commit data/ files to your GitHub repo directly. Pages rebuilds automatically."
             relationship="description"
@@ -299,12 +365,14 @@ export default function App() {
         </div>
         <PublishDialog open={publishOpen} onClose={() => setPublishOpen(false)} />
         <UnlockDialog open={unlockOpen} onClose={() => setUnlockOpen(false)} onUnlocked={() => setCanReport(false)} />
+        <PullDialog open={pullOpen} onClose={() => setPullOpen(false)} />
       </aside>
       <main className={styles.main}>
         <Routes>
           <Route path="/" element={<Tournaments />} />
           <Route path="/tournaments/:id" element={<TournamentDetail />} />
           <Route path="/games" element={<Games />} />
+          <Route path="/hall-of-fame" element={<HallOfFame />} />
         </Routes>
       </main>
     </div>

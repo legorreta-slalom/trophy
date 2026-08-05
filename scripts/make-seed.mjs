@@ -68,7 +68,7 @@ const tournaments = []
   const pair = (a, b, winner) => ({ id: `lbm-${a}${b}`, round: 1, player1Id: `lb${a}`, player2Id: `lb${b}`, result: { winner } })
   tournaments.push({
     id: 'demo-lb', name: 'Open Darts Ladder', gameId: 'game-darts', format: 'leaderboard',
-    startDate: '2026-08-01', endDate: '2026-12-31', status: 'active',
+    startDate: '2026-06-01', endDate: '2026-07-31', status: 'completed',
     players: p, matches: [pair(1, 2, 'player1'), pair(2, 3, 'draw'), pair(1, 3, 'player1'), pair(2, 1, 'player2')],
   })
 }
