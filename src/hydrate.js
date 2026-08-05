@@ -1,4 +1,5 @@
 import { getGames, getTournaments, saveGames, saveTournaments } from './store.js'
+import { saveAccess } from './publish.js'
 
 // Spectator bootstrap: if this browser has no data, load the published JSON.
 // Never overwrites existing localStorage (the host's working state wins).
@@ -12,6 +13,9 @@ export async function hydrateFromPublished() {
 
     const gamesRes = await fetch(`${base}data/games.json`)
     if (gamesRes.ok) saveGames(await gamesRes.json())
+
+    const accessRes = await fetch(`${base}data/access.json`)
+    if (accessRes.ok) saveAccess(await accessRes.json())
 
     const tournaments = await Promise.all(
       index.map(t =>

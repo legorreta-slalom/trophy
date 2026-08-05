@@ -7,12 +7,13 @@ import {
   Dialog, DialogSurface, DialogTitle, DialogBody, DialogActions, DialogContent, DialogTrigger,
   Spinner,
 } from '@fluentui/react-components'
-import { TrophyFilled, ArrowDownloadRegular, CloudArrowUpRegular } from '@fluentui/react-icons'
+import { TrophyFilled, ArrowDownloadRegular, CloudArrowUpRegular, LockOpenRegular } from '@fluentui/react-icons'
 import Tournaments from './pages/Tournaments.jsx'
 import TournamentDetail from './pages/TournamentDetail.jsx'
 import Games from './pages/Games.jsx'
 import JSZip from 'jszip'
-import { buildDataFiles, getPublishSettings, savePublishSettings, publishToGitHub } from './publish.js'
+import { buildDataFiles, getPublishSettings, savePublishSettings, publishToGitHub, getAccess } from './publish.js'
+import { decryptToken } from './pinCrypto.js'
 
 const MOBILE = '@media (max-width: 640px)'
 
@@ -98,7 +99,7 @@ const useStyles = makeStyles({
 
 async function exportData() {
   const zip = new JSZip()
-  for (const [path, content] of Object.entries(buildDataFiles())) {
+  for (const [path, content] of Object.entries(await buildDataFiles())) {
     zip.file(path, content)
   }
   const blob = await zip.generateAsync({ type: 'blob' })
@@ -145,6 +146,9 @@ function PublishDialog({ open, onClose }) {
               <Field label="Personal access token" hint="Needs contents: write on the repo. Stored only in your browser." required>
                 <Input type="password" value={settings.token} onChange={(_, { value }) => set('token', value)} />
               </Field>
+              <Field label="Participant PIN" hint="Optional. Publishes the token encrypted with this PIN so participants can unlock result reporting.">
+                <Input value={settings.pin} onChange={(_, { value }) => set('pin', value)} />
+              </Field>
               {state.phase === 'done' && (
                 <Caption1 style={{ color: tokens.colorPaletteGreenForeground1 }}>
                   Published — commit {state.sha.slice(0, 7)}. GitHub Pages will rebuild shortly.
@@ -176,9 +180,57 @@ function PublishDialog({ open, onClose }) {
   )
 }
 
+function UnlockDialog({ open, onClose, onUnlocked }) {
+  const [pin, setPin] = useState('')
+  const [error, setError] = useState('')
+
+  async function unlock() {
+    try {
+      const access = getAccess()
+      const token = await decryptToken(access, pin.trim())
+      savePublishSettings({ repo: access.repo, branch: access.branch, token, pin: '' })
+      onUnlocked()
+      onClose()
+    } catch {
+      setError('Wrong PIN.')
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(_, { open }) => !open && onClose()}>
+      <DialogSurface style={{ maxWidth: '380px' }}>
+        <DialogBody>
+          <DialogTitle>Report results</DialogTitle>
+          <DialogContent>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <Field label="PIN" hint="Ask the tournament host for the PIN." validationMessage={error || undefined}>
+                <Input
+                  value={pin}
+                  onChange={(_, { value }) => { setPin(value); setError('') }}
+                  onKeyDown={e => e.key === 'Enter' && pin.trim() && unlock()}
+                />
+              </Field>
+            </div>
+          </DialogContent>
+          <DialogActions>
+            <DialogTrigger disableButtonEnhancement>
+              <Button appearance="secondary">Cancel</Button>
+            </DialogTrigger>
+            <Button appearance="primary" disabled={!pin.trim()} icon={<LockOpenRegular />} onClick={unlock}>
+              Unlock
+            </Button>
+          </DialogActions>
+        </DialogBody>
+      </DialogSurface>
+    </Dialog>
+  )
+}
+
 export default function App() {
   const styles = useStyles()
   const [publishOpen, setPublishOpen] = useState(false)
+  const [unlockOpen, setUnlockOpen] = useState(false)
+  const [canReport, setCanReport] = useState(() => Boolean(getAccess()) && !getPublishSettings().token)
   return (
     <div className={styles.root}>
       <aside className={styles.sidebar}>
@@ -206,6 +258,18 @@ export default function App() {
           </NavLink>
         </nav>
         <div className={styles.exportArea}>
+          {canReport && (
+            <Tooltip content="Enter the tournament PIN to unlock result reporting." relationship="description">
+              <Button
+                appearance="subtle"
+                icon={<LockOpenRegular />}
+                onClick={() => setUnlockOpen(true)}
+                className={styles.sideButton}
+              >
+                <Body1 className={styles.sideButtonLabel}>Report results</Body1>
+              </Button>
+            </Tooltip>
+          )}
           <Tooltip
             content="Commit data/ files to your GitHub repo directly. Pages rebuilds automatically."
             relationship="description"
@@ -234,6 +298,7 @@ export default function App() {
           </Tooltip>
         </div>
         <PublishDialog open={publishOpen} onClose={() => setPublishOpen(false)} />
+        <UnlockDialog open={unlockOpen} onClose={() => setUnlockOpen(false)} onUnlocked={() => setCanReport(false)} />
       </aside>
       <main className={styles.main}>
         <Routes>

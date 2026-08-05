@@ -4,7 +4,8 @@
 import puppeteer from 'puppeteer-core'
 import { readFileSync, mkdirSync } from 'fs'
 
-const [name, path, seedFile, tabText] = process.argv.slice(2)
+const [name, path, seedFile, tabText, size] = process.argv.slice(2)
+const [width, height] = (size ?? '1280x860').split('x').map(Number)
 const BASE = 'http://localhost:5173/trophy'
 
 mkdirSync('progress-shots', { recursive: true })
@@ -12,10 +13,10 @@ mkdirSync('progress-shots', { recursive: true })
 const browser = await puppeteer.launch({
   channel: 'chrome',
   headless: 'new',
-  args: ['--window-size=1280,860'],
+  args: [`--window-size=${width},${height}`],
 })
 const page = await browser.newPage()
-await page.setViewport({ width: 1280, height: 860 })
+await page.setViewport({ width, height })
 
 if (seedFile) {
   const seed = JSON.parse(readFileSync(seedFile, 'utf8'))

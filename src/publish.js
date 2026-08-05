@@ -1,9 +1,10 @@
 import { getGames, getTournaments } from './store.js'
+import { encryptToken } from './pinCrypto.js'
 
 // Map of repo path → file content, used by both ZIP export and GitHub publish.
 // Files live under public/ so Vite copies them into the built site, where the
 // app (and spectators) fetch them at <base>/data/.
-export function buildDataFiles() {
+export async function buildDataFiles() {
   const games = getGames()
   const tournaments = getTournaments()
   const files = {
@@ -17,16 +18,33 @@ export function buildDataFiles() {
   for (const t of tournaments) {
     files[`public/data/tournaments/${t.id}.json`] = JSON.stringify(t, null, 2)
   }
+
+  // Participant self-reporting: ship the PAT encrypted with the host's PIN.
+  const { repo, branch, token, pin } = getPublishSettings()
+  if (pin?.trim() && token) {
+    const encrypted = await encryptToken(token, pin.trim())
+    files['public/data/access.json'] = JSON.stringify({ repo, branch, ...encrypted }, null, 2)
+  }
+
   return files
 }
 
 const NS = 'trophy:'
 
-export const getPublishSettings = () =>
-  JSON.parse(localStorage.getItem(NS + 'publish') ?? '{"repo":"","branch":"main","token":""}')
+export const getPublishSettings = () => ({
+  repo: '', branch: 'main', token: '', pin: '',
+  ...JSON.parse(localStorage.getItem(NS + 'publish') ?? '{}'),
+})
 
 export const savePublishSettings = (s) =>
   localStorage.setItem(NS + 'publish', JSON.stringify(s))
+
+// Encrypted access blob fetched from the published site (spectator side).
+export const getAccess = () =>
+  JSON.parse(localStorage.getItem(NS + 'access') ?? 'null')
+
+export const saveAccess = (a) =>
+  localStorage.setItem(NS + 'access', JSON.stringify(a))
 
 // Single commit via the Git Data API: base commit → new tree → commit → update ref.
 export async function publishToGitHub({ repo, branch, token }) {
@@ -46,7 +64,7 @@ export async function publishToGitHub({ repo, branch, token }) {
     return res.json()
   }
 
-  const files = buildDataFiles()
+  const files = await buildDataFiles()
 
   const ref = await api(`/git/ref/heads/${branch}`)
   const baseCommit = await api(`/git/commits/${ref.object.sha}`)
