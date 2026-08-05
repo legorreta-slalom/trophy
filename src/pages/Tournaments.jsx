@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   makeStyles, tokens,
   Title2, Body1, Body1Strong, Caption1,
@@ -11,28 +12,13 @@ import {
 } from '@fluentui/react-components'
 import { AddRegular, DeleteRegular, EditRegular } from '@fluentui/react-icons'
 import { getTournaments, saveTournament, deleteTournament, getGames, saveGame } from '../store.js'
-
-const FORMATS = [
-  { value: 'single-elimination', label: 'Single Elimination' },
-  { value: 'round-robin', label: 'Round Robin' },
-  { value: 'swiss', label: 'Swiss' },
-  { value: 'leaderboard', label: 'Leaderboard / Open' },
-  { value: 'group-knockout', label: 'Group + Knockout (World Cup)' },
-  { value: 'season-playoffs', label: 'Regular Season + Playoffs' },
-  { value: 'conference-finals', label: 'Conference + Finals' },
-]
+import { FORMATS, STATUS_APPEARANCE } from '../constants.js'
 
 function computeStatus(startDate, endDate) {
   const today = new Date().toISOString().slice(0, 10)
   if (today < startDate) return 'upcoming'
   if (today > endDate) return 'completed'
   return 'active'
-}
-
-const STATUS_APPEARANCE = {
-  upcoming: 'informative',
-  active: 'success',
-  completed: 'subtle',
 }
 
 const EMPTY_FORM = { name: '', gameId: '', gameInput: '', format: 'round-robin', startDate: '', endDate: '' }
@@ -55,33 +41,33 @@ const useStyles = makeStyles({
     gap: '6px',
     marginTop: '4px',
   },
-  cardRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
   cardActions: {
     display: 'flex',
     justifyContent: 'flex-end',
     gap: '4px',
     marginTop: '8px',
   },
-  formField: {
-    marginBottom: '12px',
-  },
+  formField: { marginBottom: '12px' },
   dateRow: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
     gap: '12px',
     marginBottom: '12px',
   },
+  cardLink: {
+    textDecoration: 'none',
+    color: 'inherit',
+    display: 'block',
+    cursor: 'pointer',
+  },
 })
 
 export default function Tournaments() {
   const styles = useStyles()
+  const navigate = useNavigate()
   const [tournaments, setTournaments] = useState(getTournaments)
   const [games, setGames] = useState(getGames)
-  const [editing, setEditing] = useState(null) // null = closed, tournament | {} = open
+  const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [pendingDelete, setPendingDelete] = useState(null)
 
@@ -90,12 +76,10 @@ export default function Tournaments() {
     setGames(getGames())
   }
 
-  function openNew() {
-    setEditing({})
-    setForm(EMPTY_FORM)
-  }
+  function openNew() { setEditing({}); setForm(EMPTY_FORM) }
 
-  function openEdit(t) {
+  function openEdit(e, t) {
+    e.stopPropagation()
     const game = games.find(g => g.id === t.gameId)
     setEditing(t)
     setForm({ name: t.name, gameId: t.gameId, gameInput: game?.name ?? '', format: t.format, startDate: t.startDate, endDate: t.endDate })
@@ -115,8 +99,13 @@ export default function Tournaments() {
   }
 
   function save() {
-    const status = computeStatus(form.startDate, form.endDate)
-    const tournament = {
+    const existing = editing.id ? getTournaments().find(t => t.id === editing.id) : null
+    // Preserve status/players/matches for started tournaments; only recompute status for upcoming
+    const status = existing?.status === 'active' || existing?.status === 'completed'
+      ? existing.status
+      : computeStatus(form.startDate, form.endDate)
+    saveTournament({
+      ...(existing ?? {}),
       id: editing.id ?? crypto.randomUUID(),
       name: form.name.trim(),
       gameId: form.gameId,
@@ -124,8 +113,7 @@ export default function Tournaments() {
       startDate: form.startDate,
       endDate: form.endDate,
       status,
-    }
-    saveTournament(tournament)
+    })
     refresh()
     setEditing(null)
   }
@@ -137,10 +125,7 @@ export default function Tournaments() {
   }
 
   const formValid = form.name.trim() && form.gameId && form.format && form.startDate && form.endDate
-
-  const filteredGames = games.filter(g =>
-    g.name.toLowerCase().includes(form.gameInput.toLowerCase())
-  )
+  const filteredGames = games.filter(g => g.name.toLowerCase().includes(form.gameInput.toLowerCase()))
   const showAddNew = form.gameInput.trim() &&
     !games.some(g => g.name.toLowerCase() === form.gameInput.trim().toLowerCase())
 
@@ -158,13 +143,12 @@ export default function Tournaments() {
           {tournaments.map(t => {
             const game = games.find(g => g.id === t.gameId)
             const formatLabel = FORMATS.find(f => f.value === t.format)?.label ?? t.format
+            const canEdit = t.status === 'upcoming'
             return (
-              <Card key={t.id} appearance="outline">
+              <Card key={t.id} appearance="outline" onClick={() => navigate(`/tournaments/${t.id}`)} style={{ cursor: 'pointer' }}>
                 <CardHeader
                   header={<Body1Strong>{t.name}</Body1Strong>}
-                  action={
-                    <Badge appearance="tint" color={STATUS_APPEARANCE[t.status]}>{t.status}</Badge>
-                  }
+                  action={<Badge appearance="tint" color={STATUS_APPEARANCE[t.status]}>{t.status}</Badge>}
                 />
                 <div className={styles.cardMeta}>
                   <Caption1>{game?.name ?? '—'} · {formatLabel}</Caption1>
@@ -173,8 +157,19 @@ export default function Tournaments() {
                   </Caption1>
                 </div>
                 <div className={styles.cardActions}>
-                  <Button appearance="subtle" icon={<EditRegular />} aria-label="Edit" onClick={() => openEdit(t)} />
-                  <Button appearance="subtle" icon={<DeleteRegular />} aria-label="Delete" onClick={() => setPendingDelete(t)} />
+                  <Button
+                    appearance="subtle"
+                    icon={<EditRegular />}
+                    aria-label="Edit"
+                    disabled={!canEdit}
+                    onClick={e => openEdit(e, t)}
+                  />
+                  <Button
+                    appearance="subtle"
+                    icon={<DeleteRegular />}
+                    aria-label="Delete"
+                    onClick={e => { e.stopPropagation(); setPendingDelete(t) }}
+                  />
                 </div>
               </Card>
             )
@@ -182,7 +177,6 @@ export default function Tournaments() {
         </div>
       )}
 
-      {/* Create / Edit dialog */}
       <Dialog open={editing !== null} onOpenChange={(_, { open }) => !open && setEditing(null)}>
         <DialogSurface style={{ maxWidth: '480px' }}>
           <DialogBody>
@@ -190,14 +184,9 @@ export default function Tournaments() {
             <DialogContent>
               <div className={styles.formField}>
                 <Field label="Name" required>
-                  <Input
-                    autoFocus
-                    value={form.name}
-                    onChange={(_, { value }) => set('name', value)}
-                  />
+                  <Input autoFocus value={form.name} onChange={(_, { value }) => set('name', value)} />
                 </Field>
               </div>
-
               <div className={styles.formField}>
                 <Field label="Game" required>
                   <Combobox
@@ -215,7 +204,6 @@ export default function Tournaments() {
                   </Combobox>
                 </Field>
               </div>
-
               <div className={styles.formField}>
                 <Field label="Format" required>
                   <Dropdown
@@ -227,7 +215,6 @@ export default function Tournaments() {
                   </Dropdown>
                 </Field>
               </div>
-
               <div className={styles.dateRow}>
                 <Field label="Start date" required>
                   <Input type="date" value={form.startDate} onChange={(_, { value }) => set('startDate', value)} />
@@ -247,7 +234,6 @@ export default function Tournaments() {
         </DialogSurface>
       </Dialog>
 
-      {/* Delete confirmation */}
       <Dialog open={pendingDelete !== null} onOpenChange={(_, { open }) => !open && setPendingDelete(null)}>
         <DialogSurface>
           <DialogBody>

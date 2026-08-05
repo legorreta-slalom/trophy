@@ -1,0 +1,423 @@
+import { useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import {
+  makeStyles, tokens,
+  Title2, Body1Strong, Body1, Caption1,
+  Button, Input, Field,
+  Badge,
+  TabList, Tab,
+  Table, TableHeader, TableRow, TableHeaderCell, TableBody, TableCell, TableCellActions,
+  Dialog, DialogSurface, DialogTitle, DialogBody, DialogActions, DialogContent, DialogTrigger,
+} from '@fluentui/react-components'
+import { AddRegular, DeleteRegular, ChevronLeftRegular } from '@fluentui/react-icons'
+import { getTournaments, saveTournament, getGames } from '../store.js'
+import { FORMATS, STATUS_APPEARANCE } from '../constants.js'
+import * as RR from '../engines/roundRobin.js'
+import * as SE from '../engines/singleElimination.js'
+
+const useStyles = makeStyles({
+  header: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '16px',
+    marginBottom: '24px',
+  },
+  headerText: { flex: 1 },
+  headerMeta: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginTop: '4px',
+    flexWrap: 'wrap',
+  },
+  headerActions: {
+    display: 'flex',
+    gap: '8px',
+    flexShrink: 0,
+  },
+  tabContent: { marginTop: '20px' },
+  rosterAdd: {
+    display: 'flex',
+    gap: '8px',
+    marginBottom: '16px',
+    alignItems: 'flex-end',
+  },
+  // Round robin
+  roundSection: { marginBottom: '24px' },
+  roundLabel: { marginBottom: '8px' },
+  matchRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 0',
+    borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
+  },
+  matchPlayers: { flex: 1, display: 'flex', alignItems: 'center', gap: '8px' },
+  matchVs: { color: tokens.colorNeutralForeground3 },
+  matchResult: { display: 'flex', gap: '4px' },
+  resultWinner: { fontWeight: 'bold', color: tokens.colorBrandForeground1 },
+  // Bracket
+  bracket: {
+    display: 'flex',
+    gap: '0',
+    overflowX: 'auto',
+    paddingBottom: '16px',
+  },
+  bracketRound: {
+    display: 'flex',
+    flexDirection: 'column',
+    minWidth: '220px',
+    flex: 1,
+  },
+  bracketRoundLabel: {
+    textAlign: 'center',
+    padding: '0 8px 12px',
+    color: tokens.colorNeutralForeground2,
+  },
+  bracketMatches: {
+    display: 'flex',
+    flexDirection: 'column',
+    flex: 1,
+  },
+  bracketSlot: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    padding: '4px 8px',
+  },
+  bracketCard: {
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: tokens.borderRadiusMedium,
+    overflow: 'hidden',
+    width: '100%',
+    backgroundColor: tokens.colorNeutralBackground1,
+  },
+  bracketPlayer: {
+    padding: '6px 10px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
+    ':last-child': { borderBottom: 'none' },
+  },
+  bracketPlayerWinner: {
+    backgroundColor: tokens.colorBrandBackground2,
+    color: tokens.colorBrandForeground1,
+    fontWeight: 'bold',
+  },
+  bracketPlayerElim: { color: tokens.colorNeutralForeground3 },
+  // Standings
+  standingsTable: { maxWidth: '560px' },
+  colName: { minWidth: '120px' },
+  colStat: { width: '48px', textAlign: 'center' },
+})
+
+function roundLabel(round, maxRound) {
+  if (round === maxRound) return 'Final'
+  if (round === maxRound - 1) return 'Semi-final'
+  if (round === maxRound - 2) return 'Quarter-final'
+  return `Round ${round}`
+}
+
+function RoundRobinView({ tournament, playerById, onResult }) {
+  const styles = useStyles()
+  const rounds = {}
+  for (const m of tournament.matches) {
+    if (!rounds[m.round]) rounds[m.round] = []
+    rounds[m.round].push(m)
+  }
+
+  return (
+    <>
+      {Object.keys(rounds).sort((a, b) => +a - +b).map(r => (
+        <div key={r} className={styles.roundSection}>
+          <Body1Strong className={styles.roundLabel}>Round {r}</Body1Strong>
+          {rounds[r].map(m => {
+            const p1 = playerById[m.player1Id]
+            const p2 = playerById[m.player2Id]
+            return (
+              <div key={m.id} className={styles.matchRow}>
+                <div className={styles.matchPlayers}>
+                  <Body1 className={m.result?.winner === 'player1' ? styles.resultWinner : ''}>{p1?.name ?? '?'}</Body1>
+                  <Caption1 className={styles.matchVs}>vs</Caption1>
+                  <Body1 className={m.result?.winner === 'player2' ? styles.resultWinner : ''}>{p2?.name ?? '?'}</Body1>
+                </div>
+                {m.result ? (
+                  <Caption1>{m.result.winner === 'draw' ? 'Draw' : m.result.winner === 'player1' ? `${p1?.name} wins` : `${p2?.name} wins`}</Caption1>
+                ) : (
+                  <div className={styles.matchResult}>
+                    <Button size="small" onClick={() => onResult(m.id, { winner: 'player1' })}>{p1?.name}</Button>
+                    <Button size="small" onClick={() => onResult(m.id, { winner: 'draw' })}>Draw</Button>
+                    <Button size="small" onClick={() => onResult(m.id, { winner: 'player2' })}>{p2?.name}</Button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      ))}
+    </>
+  )
+}
+
+function StandingsView({ tournament, playerById }) {
+  const styles = useStyles()
+  const rows = RR.computeStandings(tournament.players, tournament.matches)
+  return (
+    <div className={styles.standingsTable}>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHeaderCell style={{ width: '32px' }}>#</TableHeaderCell>
+            <TableHeaderCell className={styles.colName}>Player</TableHeaderCell>
+            <TableHeaderCell className={styles.colStat}>Played</TableHeaderCell>
+            <TableHeaderCell className={styles.colStat}>W</TableHeaderCell>
+            <TableHeaderCell className={styles.colStat}>D</TableHeaderCell>
+            <TableHeaderCell className={styles.colStat}>L</TableHeaderCell>
+            <TableHeaderCell className={styles.colStat}>Pts</TableHeaderCell>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((p, i) => (
+            <TableRow key={p.id}>
+              <TableCell>{i + 1}</TableCell>
+              <TableCell className={styles.colName}><Body1Strong>{p.name}</Body1Strong></TableCell>
+              <TableCell className={styles.colStat}>{p.played}</TableCell>
+              <TableCell className={styles.colStat}>{p.w}</TableCell>
+              <TableCell className={styles.colStat}>{p.d}</TableCell>
+              <TableCell className={styles.colStat}>{p.l}</TableCell>
+              <TableCell className={styles.colStat}><Body1Strong>{p.pts}</Body1Strong></TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
+function BracketView({ tournament, playerById, onResult }) {
+  const styles = useStyles()
+  const matches = tournament.matches
+  if (!matches.length) return null
+
+  const maxRound = Math.max(...matches.map(m => m.round))
+  const rounds = {}
+  for (const m of matches) {
+    if (!rounds[m.round]) rounds[m.round] = []
+    rounds[m.round].push(m)
+  }
+
+  return (
+    <div className={styles.bracket}>
+      {Array.from({ length: maxRound }, (_, i) => i + 1).map(r => {
+        const roundMatches = rounds[r].sort((a, b) => a.position - b.position)
+        return (
+          <div key={r} className={styles.bracketRound}>
+            <Caption1 className={styles.bracketRoundLabel}>{roundLabel(r, maxRound)}</Caption1>
+            <div className={styles.bracketMatches}>
+              {roundMatches.map(m => {
+                const p1 = m.player1Id ? playerById[m.player1Id] : null
+                const p2 = m.player2Id ? playerById[m.player2Id] : null
+                const winnerId = m.result?.winnerId
+                const canEnter = !m.result && p1 && p2
+
+                return (
+                  <div key={m.id} className={styles.bracketSlot}>
+                    <div className={styles.bracketCard}>
+                      {[{ p: p1, side: 'p1' }, { p: p2, side: 'p2' }].map(({ p, side }) => {
+                        const isWinner = p && p.id === winnerId
+                        const isElim = winnerId && p && p.id !== winnerId
+                        return (
+                          <div
+                            key={side}
+                            className={`${styles.bracketPlayer} ${isWinner ? styles.bracketPlayerWinner : ''} ${isElim ? styles.bracketPlayerElim : ''}`}
+                          >
+                            <Body1>{p?.name ?? 'TBD'}</Body1>
+                            {isWinner && <Caption1>🏆</Caption1>}
+                          </div>
+                        )
+                      })}
+                      {canEnter && (
+                        <div style={{ display: 'flex', padding: '4px', gap: '4px', backgroundColor: tokens.colorNeutralBackground2 }}>
+                          <Button size="small" style={{ flex: 1 }} onClick={() => onResult(m.id, { winnerId: p1.id })}>{p1.name}</Button>
+                          <Button size="small" style={{ flex: 1 }} onClick={() => onResult(m.id, { winnerId: p2.id })}>{p2.name}</Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+export default function TournamentDetail() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const styles = useStyles()
+
+  const [tournament, setTournament] = useState(() => {
+    const t = getTournaments().find(t => t.id === id)
+    return t ? { players: [], matches: [], ...t } : null
+  })
+  const [games] = useState(getGames)
+  const [selectedTab, setSelectedTab] = useState('players')
+  const [newPlayerName, setNewPlayerName] = useState('')
+
+  if (!tournament) {
+    return <Body1>Tournament not found.</Body1>
+  }
+
+  function save(updated) {
+    saveTournament(updated)
+    setTournament(updated)
+  }
+
+  function addPlayer() {
+    const name = newPlayerName.trim()
+    if (!name) return
+    save({ ...tournament, players: [...tournament.players, { id: crypto.randomUUID(), name }] })
+    setNewPlayerName('')
+  }
+
+  function removePlayer(playerId) {
+    save({ ...tournament, players: tournament.players.filter(p => p.id !== playerId) })
+  }
+
+  function start() {
+    const matches = tournament.format === 'single-elimination'
+      ? SE.generate(tournament.players)
+      : RR.generate(tournament.players)
+    save({ ...tournament, status: 'active', matches })
+    setSelectedTab(tournament.format === 'round-robin' ? 'matches' : 'bracket')
+  }
+
+  function finish() {
+    save({ ...tournament, status: 'completed' })
+  }
+
+  function handleRRResult(matchId, result) {
+    const matches = tournament.matches.map(m => m.id === matchId ? { ...m, result } : m)
+    save({ ...tournament, matches })
+  }
+
+  function handleSEResult(matchId, result) {
+    const updated = tournament.matches.map(m => m.id === matchId ? { ...m, result } : m)
+    save({ ...tournament, matches: SE.advanceWinners(updated) })
+  }
+
+  const game = games.find(g => g.id === tournament.gameId)
+  const formatLabel = FORMATS.find(f => f.value === tournament.format)?.label ?? tournament.format
+  const playerById = Object.fromEntries(tournament.players.map(p => [p.id, p]))
+  const isRR = tournament.format === 'round-robin'
+  const complete = isRR ? RR.isComplete(tournament.matches) : SE.isComplete(tournament.matches)
+
+  return (
+    <>
+      <div className={styles.header}>
+        <Button
+          appearance="subtle"
+          icon={<ChevronLeftRegular />}
+          onClick={() => navigate('/')}
+        />
+        <div className={styles.headerText}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Title2>{tournament.name}</Title2>
+            <Badge appearance="tint" color={STATUS_APPEARANCE[tournament.status]}>{tournament.status}</Badge>
+          </div>
+          <div className={styles.headerMeta}>
+            <Caption1>{game?.name ?? '—'}</Caption1>
+            <Caption1>·</Caption1>
+            <Caption1>{formatLabel}</Caption1>
+            <Caption1>·</Caption1>
+            <Caption1>{tournament.startDate} → {tournament.endDate}</Caption1>
+          </div>
+        </div>
+        <div className={styles.headerActions}>
+          {tournament.status === 'upcoming' && tournament.players.length >= 2 && (
+            <Button appearance="primary" onClick={start}>Start tournament</Button>
+          )}
+          {tournament.status === 'active' && complete && (
+            <Button appearance="primary" onClick={finish}>Finish tournament</Button>
+          )}
+        </div>
+      </div>
+
+      <TabList
+        selectedValue={selectedTab}
+        onTabSelect={(_, { value }) => setSelectedTab(value)}
+      >
+        <Tab value="players">Players {tournament.players.length > 0 ? `(${tournament.players.length})` : ''}</Tab>
+        {tournament.status !== 'upcoming' && isRR && <Tab value="matches">Matches</Tab>}
+        {tournament.status !== 'upcoming' && isRR && <Tab value="standings">Standings</Tab>}
+        {tournament.status !== 'upcoming' && !isRR && <Tab value="bracket">Bracket</Tab>}
+      </TabList>
+
+      <div className={styles.tabContent}>
+        {selectedTab === 'players' && (
+          <>
+            {tournament.status === 'upcoming' && (
+              <div className={styles.rosterAdd}>
+                <Field label="Add player">
+                  <Input
+                    placeholder="Player name"
+                    value={newPlayerName}
+                    onChange={(_, { value }) => setNewPlayerName(value)}
+                    onKeyDown={e => e.key === 'Enter' && addPlayer()}
+                    style={{ width: '240px' }}
+                  />
+                </Field>
+                <Button icon={<AddRegular />} onClick={addPlayer} disabled={!newPlayerName.trim()}>Add</Button>
+              </div>
+            )}
+            {tournament.players.length === 0 ? (
+              <Body1>No players yet{tournament.status === 'upcoming' ? ' — add some above.' : '.'}</Body1>
+            ) : (
+              <Table style={{ maxWidth: '400px' }}>
+                <TableHeader>
+                  <TableRow>
+                    <TableHeaderCell>Name</TableHeaderCell>
+                    {tournament.status === 'upcoming' && <TableHeaderCell />}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tournament.players.map(p => (
+                    <TableRow key={p.id}>
+                      <TableCell>{p.name}</TableCell>
+                      {tournament.status === 'upcoming' && (
+                        <TableCellActions>
+                          <Button appearance="subtle" icon={<DeleteRegular />} aria-label="Remove" onClick={() => removePlayer(p.id)} />
+                        </TableCellActions>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+            {tournament.status === 'upcoming' && tournament.players.length < 2 && (
+              <Caption1 style={{ color: tokens.colorNeutralForeground3, display: 'block', marginTop: '12px' }}>
+                Add at least 2 players to start.
+              </Caption1>
+            )}
+          </>
+        )}
+
+        {selectedTab === 'matches' && (
+          <RoundRobinView tournament={tournament} playerById={playerById} onResult={handleRRResult} />
+        )}
+
+        {selectedTab === 'standings' && (
+          <StandingsView tournament={tournament} playerById={playerById} />
+        )}
+
+        {selectedTab === 'bracket' && (
+          <BracketView tournament={tournament} playerById={playerById} onResult={handleSEResult} />
+        )}
+      </div>
+    </>
+  )
+}

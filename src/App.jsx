@@ -6,7 +6,9 @@ import {
 } from '@fluentui/react-components'
 import { TrophyFilled, ArrowDownloadRegular } from '@fluentui/react-icons'
 import Tournaments from './pages/Tournaments.jsx'
+import TournamentDetail from './pages/TournamentDetail.jsx'
 import Games from './pages/Games.jsx'
+import JSZip from 'jszip'
 import { getGames, getTournaments } from './store.js'
 
 const useStyles = makeStyles({
@@ -68,13 +70,29 @@ const useStyles = makeStyles({
   },
 })
 
-function exportData() {
-  const data = { games: getGames(), tournaments: getTournaments() }
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+async function exportData() {
+  const games = getGames()
+  const tournaments = getTournaments()
+  const zip = new JSZip()
+  const data = zip.folder('data')
+
+  data.file('games.json', JSON.stringify(games, null, 2))
+  data.file('index.json', JSON.stringify(
+    tournaments.map(({ id, name, gameId, format, status, startDate, endDate }) =>
+      ({ id, name, gameId, format, status, startDate, endDate })
+    ), null, 2
+  ))
+
+  const tournamentFolder = data.folder('tournaments')
+  for (const t of tournaments) {
+    tournamentFolder.file(`${t.id}.json`, JSON.stringify(t, null, 2))
+  }
+
+  const blob = await zip.generateAsync({ type: 'blob' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'trophy-data.json'
+  a.download = 'trophy-data.zip'
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -109,7 +127,7 @@ export default function App() {
         </nav>
         <div className={styles.exportArea}>
           <Tooltip
-            content="Download trophy-data.json, commit it to your repo to publish."
+            content="Download trophy-data.zip. Unzip into your repo root and commit to publish."
             relationship="description"
           >
             <Button
@@ -126,6 +144,7 @@ export default function App() {
       <main className={styles.main}>
         <Routes>
           <Route path="/" element={<Tournaments />} />
+          <Route path="/tournaments/:id" element={<TournamentDetail />} />
           <Route path="/games" element={<Games />} />
         </Routes>
       </main>
