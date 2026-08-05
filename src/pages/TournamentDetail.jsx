@@ -149,12 +149,14 @@ function RoundRobinView({ matches, playerById, onResult }) {
                 </div>
                 {m.result ? (
                   <Caption1>{m.player2Id === null ? 'Bye' : m.result.winner === 'draw' ? 'Draw' : m.result.winner === 'player1' ? `${p1?.name} wins` : `${p2?.name} wins`}</Caption1>
-                ) : (
+                ) : onResult ? (
                   <div className={styles.matchResult}>
                     <Button size="small" onClick={() => onResult(m.id, { winner: 'player1' })}>{p1?.name}</Button>
                     <Button size="small" onClick={() => onResult(m.id, { winner: 'draw' })}>Draw</Button>
                     <Button size="small" onClick={() => onResult(m.id, { winner: 'player2' })}>{p2?.name}</Button>
                   </div>
+                ) : (
+                  <Caption1>Pending</Caption1>
                 )}
               </div>
             )
@@ -320,7 +322,7 @@ function BracketView({ matches, playerById, onResult }) {
                 const p1 = m.player1Id ? playerById[m.player1Id] : null
                 const p2 = m.player2Id ? playerById[m.player2Id] : null
                 const winnerId = m.result?.winnerId
-                const canEnter = !m.result && p1 && p2
+                const canEnter = !m.result && p1 && p2 && onResult
 
                 return (
                   <div key={m.id} className={styles.bracketSlot}>
@@ -587,7 +589,7 @@ export default function TournamentDetail() {
             <RoundRobinView
               matches={isSP ? SP.seasonMatches(tournament.matches) : tournament.matches}
               playerById={playerById}
-              onResult={handleRRResult}
+              onResult={tournament.status === 'active' ? handleRRResult : undefined}
             />
             {swissCanAdvance && (
               <Button appearance="primary" onClick={generateNextSwissRound}>
@@ -608,7 +610,7 @@ export default function TournamentDetail() {
           <GroupsView
             tournament={tournament}
             playerById={playerById}
-            onResult={handleRRResult}
+            onResult={tournament.status === 'active' ? handleRRResult : undefined}
             groupLabel={isCF ? (g) => `${g} Conference` : undefined}
           />
         )}
@@ -617,7 +619,7 @@ export default function TournamentDetail() {
           <BracketView
             matches={isBracket ? tournament.matches : GK.knockoutMatches(tournament.matches)}
             playerById={playerById}
-            onResult={isBracket ? handleSEResult : handleKOResult}
+            onResult={tournament.status === 'active' ? (isBracket ? handleSEResult : handleKOResult) : undefined}
           />
         )}
       </div>

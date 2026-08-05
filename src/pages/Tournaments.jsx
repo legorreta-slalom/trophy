@@ -13,6 +13,7 @@ import {
 import { AddRegular, DeleteRegular, EditRegular } from '@fluentui/react-icons'
 import { getTournaments, saveTournament, deleteTournament, getGames, saveGame } from '../store.js'
 import { FORMATS, STATUS_APPEARANCE } from '../constants.js'
+import { getChampion } from '../engines/champion.js'
 
 function computeStatus(startDate, endDate) {
   const today = new Date().toISOString().slice(0, 10)
@@ -129,6 +130,42 @@ export default function Tournaments() {
   const showAddNew = form.gameInput.trim() &&
     !games.some(g => g.name.toLowerCase() === form.gameInput.trim().toLowerCase())
 
+  function renderCard(t) {
+    const game = games.find(g => g.id === t.gameId)
+    const formatLabel = FORMATS.find(f => f.value === t.format)?.label ?? t.format
+    const champion = t.status === 'completed' ? getChampion(t) : null
+    return (
+      <Card key={t.id} appearance="outline" onClick={() => navigate(`/tournaments/${t.id}`)} style={{ cursor: 'pointer' }}>
+        <CardHeader
+          header={<Body1Strong>{t.name}</Body1Strong>}
+          action={<Badge appearance="tint" color={STATUS_APPEARANCE[t.status]}>{t.status}</Badge>}
+        />
+        <div className={styles.cardMeta}>
+          <Caption1>{game?.name ?? '—'} · {formatLabel}</Caption1>
+          <Caption1 style={{ color: tokens.colorNeutralForeground3 }}>
+            {t.startDate} → {t.endDate}
+          </Caption1>
+          {champion && <Body1Strong>🏆 {champion.name}</Body1Strong>}
+        </div>
+        <div className={styles.cardActions}>
+          <Button
+            appearance="subtle"
+            icon={<EditRegular />}
+            aria-label="Edit"
+            disabled={t.status !== 'upcoming'}
+            onClick={e => openEdit(e, t)}
+          />
+          <Button
+            appearance="subtle"
+            icon={<DeleteRegular />}
+            aria-label="Delete"
+            onClick={e => { e.stopPropagation(); setPendingDelete(t) }}
+          />
+        </div>
+      </Card>
+    )
+  }
+
   return (
     <>
       <div className={styles.header}>
@@ -139,42 +176,19 @@ export default function Tournaments() {
       {tournaments.length === 0 ? (
         <Body1>No tournaments yet. Create one to get started.</Body1>
       ) : (
-        <div className={styles.grid}>
-          {tournaments.map(t => {
-            const game = games.find(g => g.id === t.gameId)
-            const formatLabel = FORMATS.find(f => f.value === t.format)?.label ?? t.format
-            const canEdit = t.status === 'upcoming'
-            return (
-              <Card key={t.id} appearance="outline" onClick={() => navigate(`/tournaments/${t.id}`)} style={{ cursor: 'pointer' }}>
-                <CardHeader
-                  header={<Body1Strong>{t.name}</Body1Strong>}
-                  action={<Badge appearance="tint" color={STATUS_APPEARANCE[t.status]}>{t.status}</Badge>}
-                />
-                <div className={styles.cardMeta}>
-                  <Caption1>{game?.name ?? '—'} · {formatLabel}</Caption1>
-                  <Caption1 style={{ color: tokens.colorNeutralForeground3 }}>
-                    {t.startDate} → {t.endDate}
-                  </Caption1>
-                </div>
-                <div className={styles.cardActions}>
-                  <Button
-                    appearance="subtle"
-                    icon={<EditRegular />}
-                    aria-label="Edit"
-                    disabled={!canEdit}
-                    onClick={e => openEdit(e, t)}
-                  />
-                  <Button
-                    appearance="subtle"
-                    icon={<DeleteRegular />}
-                    aria-label="Delete"
-                    onClick={e => { e.stopPropagation(); setPendingDelete(t) }}
-                  />
-                </div>
-              </Card>
-            )
-          })}
-        </div>
+        <>
+          <div className={styles.grid}>
+            {tournaments.filter(t => t.status !== 'completed').map(t => renderCard(t))}
+          </div>
+          {tournaments.some(t => t.status === 'completed') && (
+            <>
+              <Title2 style={{ display: 'block', margin: '32px 0 16px' }}>Archive</Title2>
+              <div className={styles.grid}>
+                {tournaments.filter(t => t.status === 'completed').map(t => renderCard(t))}
+              </div>
+            </>
+          )}
+        </>
       )}
 
       <Dialog open={editing !== null} onOpenChange={(_, { open }) => !open && setEditing(null)}>
