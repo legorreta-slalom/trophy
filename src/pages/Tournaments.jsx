@@ -1,0 +1,267 @@
+import { useState } from 'react'
+import {
+  makeStyles, tokens,
+  Title2, Body1, Body1Strong, Caption1,
+  Button, Input, Field,
+  Dialog, DialogSurface, DialogTitle, DialogBody, DialogActions, DialogContent, DialogTrigger,
+  Combobox, Option,
+  Dropdown,
+  Card, CardHeader,
+  Badge,
+} from '@fluentui/react-components'
+import { AddRegular, DeleteRegular, EditRegular } from '@fluentui/react-icons'
+import { getTournaments, saveTournament, deleteTournament, getGames, saveGame } from '../store.js'
+
+const FORMATS = [
+  { value: 'single-elimination', label: 'Single Elimination' },
+  { value: 'round-robin', label: 'Round Robin' },
+  { value: 'swiss', label: 'Swiss' },
+  { value: 'leaderboard', label: 'Leaderboard / Open' },
+  { value: 'group-knockout', label: 'Group + Knockout (World Cup)' },
+  { value: 'season-playoffs', label: 'Regular Season + Playoffs' },
+  { value: 'conference-finals', label: 'Conference + Finals' },
+]
+
+function computeStatus(startDate, endDate) {
+  const today = new Date().toISOString().slice(0, 10)
+  if (today < startDate) return 'upcoming'
+  if (today > endDate) return 'completed'
+  return 'active'
+}
+
+const STATUS_APPEARANCE = {
+  upcoming: 'informative',
+  active: 'success',
+  completed: 'subtle',
+}
+
+const EMPTY_FORM = { name: '', gameId: '', gameInput: '', format: 'round-robin', startDate: '', endDate: '' }
+
+const useStyles = makeStyles({
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '24px',
+  },
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+    gap: '16px',
+  },
+  cardMeta: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    marginTop: '4px',
+  },
+  cardRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardActions: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: '4px',
+    marginTop: '8px',
+  },
+  formField: {
+    marginBottom: '12px',
+  },
+  dateRow: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '12px',
+    marginBottom: '12px',
+  },
+})
+
+export default function Tournaments() {
+  const styles = useStyles()
+  const [tournaments, setTournaments] = useState(getTournaments)
+  const [games, setGames] = useState(getGames)
+  const [editing, setEditing] = useState(null) // null = closed, tournament | {} = open
+  const [form, setForm] = useState(EMPTY_FORM)
+  const [pendingDelete, setPendingDelete] = useState(null)
+
+  function refresh() {
+    setTournaments(getTournaments())
+    setGames(getGames())
+  }
+
+  function openNew() {
+    setEditing({})
+    setForm(EMPTY_FORM)
+  }
+
+  function openEdit(t) {
+    const game = games.find(g => g.id === t.gameId)
+    setEditing(t)
+    setForm({ name: t.name, gameId: t.gameId, gameInput: game?.name ?? '', format: t.format, startDate: t.startDate, endDate: t.endDate })
+  }
+
+  function set(field, value) { setForm(f => ({ ...f, [field]: value })) }
+
+  function handleGameSelect(_, data) {
+    if (data.optionValue === '__new__') {
+      const newGame = { id: crypto.randomUUID(), name: form.gameInput.trim() }
+      saveGame(newGame)
+      setGames(getGames())
+      setForm(f => ({ ...f, gameId: newGame.id, gameInput: newGame.name }))
+    } else {
+      setForm(f => ({ ...f, gameId: data.optionValue, gameInput: data.optionText ?? '' }))
+    }
+  }
+
+  function save() {
+    const status = computeStatus(form.startDate, form.endDate)
+    const tournament = {
+      id: editing.id ?? crypto.randomUUID(),
+      name: form.name.trim(),
+      gameId: form.gameId,
+      format: form.format,
+      startDate: form.startDate,
+      endDate: form.endDate,
+      status,
+    }
+    saveTournament(tournament)
+    refresh()
+    setEditing(null)
+  }
+
+  function confirmDelete() {
+    deleteTournament(pendingDelete.id)
+    refresh()
+    setPendingDelete(null)
+  }
+
+  const formValid = form.name.trim() && form.gameId && form.format && form.startDate && form.endDate
+
+  const filteredGames = games.filter(g =>
+    g.name.toLowerCase().includes(form.gameInput.toLowerCase())
+  )
+  const showAddNew = form.gameInput.trim() &&
+    !games.some(g => g.name.toLowerCase() === form.gameInput.trim().toLowerCase())
+
+  return (
+    <>
+      <div className={styles.header}>
+        <Title2>Tournaments</Title2>
+        <Button appearance="primary" icon={<AddRegular />} onClick={openNew}>New tournament</Button>
+      </div>
+
+      {tournaments.length === 0 ? (
+        <Body1>No tournaments yet. Create one to get started.</Body1>
+      ) : (
+        <div className={styles.grid}>
+          {tournaments.map(t => {
+            const game = games.find(g => g.id === t.gameId)
+            const formatLabel = FORMATS.find(f => f.value === t.format)?.label ?? t.format
+            return (
+              <Card key={t.id} appearance="outline">
+                <CardHeader
+                  header={<Body1Strong>{t.name}</Body1Strong>}
+                  action={
+                    <Badge appearance="tint" color={STATUS_APPEARANCE[t.status]}>{t.status}</Badge>
+                  }
+                />
+                <div className={styles.cardMeta}>
+                  <Caption1>{game?.name ?? '—'} · {formatLabel}</Caption1>
+                  <Caption1 style={{ color: tokens.colorNeutralForeground3 }}>
+                    {t.startDate} → {t.endDate}
+                  </Caption1>
+                </div>
+                <div className={styles.cardActions}>
+                  <Button appearance="subtle" icon={<EditRegular />} aria-label="Edit" onClick={() => openEdit(t)} />
+                  <Button appearance="subtle" icon={<DeleteRegular />} aria-label="Delete" onClick={() => setPendingDelete(t)} />
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Create / Edit dialog */}
+      <Dialog open={editing !== null} onOpenChange={(_, { open }) => !open && setEditing(null)}>
+        <DialogSurface style={{ maxWidth: '480px' }}>
+          <DialogBody>
+            <DialogTitle>{editing?.id ? 'Edit tournament' : 'New tournament'}</DialogTitle>
+            <DialogContent>
+              <div className={styles.formField}>
+                <Field label="Name" required>
+                  <Input
+                    autoFocus
+                    value={form.name}
+                    onChange={(_, { value }) => set('name', value)}
+                  />
+                </Field>
+              </div>
+
+              <div className={styles.formField}>
+                <Field label="Game" required>
+                  <Combobox
+                    freeform
+                    placeholder="Search or add a game…"
+                    value={form.gameInput}
+                    selectedOptions={form.gameId ? [form.gameId] : []}
+                    onChange={e => set('gameInput', e.target.value)}
+                    onOptionSelect={handleGameSelect}
+                  >
+                    {filteredGames.map(g => <Option key={g.id} value={g.id}>{g.name}</Option>)}
+                    {showAddNew && (
+                      <Option value="__new__">Add &ldquo;{form.gameInput.trim()}&rdquo; as new game</Option>
+                    )}
+                  </Combobox>
+                </Field>
+              </div>
+
+              <div className={styles.formField}>
+                <Field label="Format" required>
+                  <Dropdown
+                    value={FORMATS.find(f => f.value === form.format)?.label ?? ''}
+                    selectedOptions={[form.format]}
+                    onOptionSelect={(_, { optionValue }) => set('format', optionValue)}
+                  >
+                    {FORMATS.map(f => <Option key={f.value} value={f.value}>{f.label}</Option>)}
+                  </Dropdown>
+                </Field>
+              </div>
+
+              <div className={styles.dateRow}>
+                <Field label="Start date" required>
+                  <Input type="date" value={form.startDate} onChange={(_, { value }) => set('startDate', value)} />
+                </Field>
+                <Field label="End date" required>
+                  <Input type="date" value={form.endDate} onChange={(_, { value }) => set('endDate', value)} />
+                </Field>
+              </div>
+            </DialogContent>
+            <DialogActions>
+              <DialogTrigger disableButtonEnhancement>
+                <Button appearance="secondary">Cancel</Button>
+              </DialogTrigger>
+              <Button appearance="primary" disabled={!formValid} onClick={save}>Save</Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
+
+      {/* Delete confirmation */}
+      <Dialog open={pendingDelete !== null} onOpenChange={(_, { open }) => !open && setPendingDelete(null)}>
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>Delete &ldquo;{pendingDelete?.name}&rdquo;?</DialogTitle>
+            <DialogContent>This will permanently remove the tournament and all its data.</DialogContent>
+            <DialogActions>
+              <DialogTrigger disableButtonEnhancement>
+                <Button appearance="secondary">Cancel</Button>
+              </DialogTrigger>
+              <Button appearance="primary" onClick={confirmDelete}>Delete</Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
+    </>
+  )
+}
