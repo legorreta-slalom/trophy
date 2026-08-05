@@ -4,7 +4,7 @@
 import puppeteer from 'puppeteer-core'
 import { readFileSync, mkdirSync } from 'fs'
 
-const [name, path, seedFile, tabText, size, scheme] = process.argv.slice(2)
+const [name, path, seedFile, tabText, size, scheme, clickSelector] = process.argv.slice(2)
 const [width, height] = (size ?? '1280x860').split('x').map(Number)
 const BASE = 'http://localhost:5173/trophy'
 
@@ -39,6 +39,11 @@ if (tabText) {
       .find(t => t.textContent.trim().startsWith(text))
     tab?.click()
   }, tabText)
+  await new Promise(r => setTimeout(r, 500))
+}
+
+if (clickSelector) {
+  await page.click(clickSelector)
   await new Promise(r => setTimeout(r, 500))
 }
 

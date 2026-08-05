@@ -67,32 +67,39 @@ export async function publishToGitHub({ token, message = 'chore: publish TROPHY 
 
   const files = await buildDataFiles()
 
-  const ref = await api(`/git/ref/heads/${BRANCH}`)
-  const baseCommit = await api(`/git/commits/${ref.object.sha}`)
+  // Concurrent flush from another device moves the ref between our read and
+  // update ("not a fast forward", 422) — rebuild on the new head and retry.
+  for (let attempt = 1; ; attempt++) {
+    const ref = await api(`/git/ref/heads/${BRANCH}`)
+    const baseCommit = await api(`/git/commits/${ref.object.sha}`)
 
-  const tree = await api('/git/trees', {
-    method: 'POST',
-    body: JSON.stringify({
-      base_tree: baseCommit.tree.sha,
-      tree: Object.entries(files).map(([path, content]) => ({
-        path, mode: '100644', type: 'blob', content,
-      })),
-    }),
-  })
+    const tree = await api('/git/trees', {
+      method: 'POST',
+      body: JSON.stringify({
+        base_tree: baseCommit.tree.sha,
+        tree: Object.entries(files).map(([path, content]) => ({
+          path, mode: '100644', type: 'blob', content,
+        })),
+      }),
+    })
 
-  const commit = await api('/git/commits', {
-    method: 'POST',
-    body: JSON.stringify({
-      message,
-      tree: tree.sha,
-      parents: [ref.object.sha],
-    }),
-  })
+    const commit = await api('/git/commits', {
+      method: 'POST',
+      body: JSON.stringify({
+        message,
+        tree: tree.sha,
+        parents: [ref.object.sha],
+      }),
+    })
 
-  await api(`/git/refs/heads/${BRANCH}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ sha: commit.sha }),
-  })
-
-  return commit.sha
+    try {
+      await api(`/git/refs/heads/${BRANCH}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ sha: commit.sha }),
+      })
+      return commit.sha
+    } catch (err) {
+      if (attempt >= 3 || !/fast forward/i.test(err.message)) throw err
+    }
+  }
 }

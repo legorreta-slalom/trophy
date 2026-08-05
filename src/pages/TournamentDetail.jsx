@@ -9,8 +9,9 @@ import {
   TabList, Tab,
   Table, TableHeader, TableRow, TableHeaderCell, TableBody, TableCell, TableCellActions,
   Dialog, DialogSurface, DialogTitle, DialogBody, DialogActions, DialogContent, DialogTrigger,
+  Popover, PopoverTrigger, PopoverSurface,
 } from '@fluentui/react-components'
-import { AddRegular, DeleteRegular, ChevronLeftRegular, DismissRegular, QrCodeRegular } from '@fluentui/react-icons'
+import { AddRegular, DeleteRegular, ChevronLeftRegular, DismissRegular, QrCodeRegular, ArrowUpRegular, ArrowDownRegular } from '@fluentui/react-icons'
 import { useEffect } from 'react'
 import QRCode from 'qrcode'
 import { getTournaments, saveTournament, getGames } from '../store.js'
@@ -121,6 +122,40 @@ const useStyles = makeStyles({
   colStat: { width: '48px', textAlign: 'center' },
 })
 
+// Score entry: winner is inferred from the higher number.
+function ScorePopover({ p1Name, p2Name, allowDraw, onSave }) {
+  const [open, setOpen] = useState(false)
+  const [a, setA] = useState('')
+  const [b, setB] = useState('')
+
+  const valid = a !== '' && b !== '' && (allowDraw || Number(a) !== Number(b))
+
+  function save() {
+    onSave([Number(a), Number(b)])
+    setOpen(false)
+    setA(''); setB('')
+  }
+
+  return (
+    <Popover open={open} onOpenChange={(_, { open }) => setOpen(open)} positioning="below-end">
+      <PopoverTrigger disableButtonEnhancement>
+        <Button size="small" appearance="subtle">Score…</Button>
+      </PopoverTrigger>
+      <PopoverSurface style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', padding: '12px' }}>
+        <Field label={p1Name}>
+          <Input type="number" min="0" value={a} onChange={(_, { value }) => setA(value)} style={{ width: '72px' }} />
+        </Field>
+        <Field label={p2Name}>
+          <Input type="number" min="0" value={b} onChange={(_, { value }) => setB(value)} style={{ width: '72px' }} />
+        </Field>
+        <Button appearance="primary" size="small" disabled={!valid} onClick={save}>Save</Button>
+      </PopoverSurface>
+    </Popover>
+  )
+}
+
+const scoreLabel = (result) => result?.score ? ` ${result.score[0]}–${result.score[1]}` : ''
+
 function roundLabel(round, maxRound) {
   if (round === maxRound) return 'Final'
   if (round === maxRound - 1) return 'Semi-final'
@@ -153,7 +188,7 @@ function RoundRobinView({ matches, playerById, onResult, onClear }) {
                 </div>
                 {m.result ? (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Caption1>{m.player2Id === null ? 'Bye' : m.result.winner === 'draw' ? 'Draw' : m.result.winner === 'player1' ? `${p1?.name} wins` : `${p2?.name} wins`}</Caption1>
+                    <Caption1>{m.player2Id === null ? 'Bye' : `${m.result.winner === 'draw' ? 'Draw' : m.result.winner === 'player1' ? `${p1?.name} wins` : `${p2?.name} wins`}${scoreLabel(m.result)}`}</Caption1>
                     {onClear && m.player2Id !== null && (
                       <Button appearance="subtle" size="small" icon={<DismissRegular />} aria-label="Clear result" onClick={() => onClear(m.id)} />
                     )}
@@ -163,6 +198,15 @@ function RoundRobinView({ matches, playerById, onResult, onClear }) {
                     <Button size="small" onClick={() => onResult(m.id, { winner: 'player1' })}>{p1?.name}</Button>
                     <Button size="small" onClick={() => onResult(m.id, { winner: 'draw' })}>Draw</Button>
                     <Button size="small" onClick={() => onResult(m.id, { winner: 'player2' })}>{p2?.name}</Button>
+                    <ScorePopover
+                      p1Name={p1?.name}
+                      p2Name={p2?.name}
+                      allowDraw
+                      onSave={(score) => onResult(m.id, {
+                        winner: score[0] > score[1] ? 'player1' : score[1] > score[0] ? 'player2' : 'draw',
+                        score,
+                      })}
+                    />
                   </div>
                 ) : (
                   <Caption1>Pending</Caption1>
@@ -342,7 +386,7 @@ function BracketView({ matches, playerById, onResult, onClear }) {
                 return (
                   <div key={m.id} className={styles.bracketSlot}>
                     <div className={styles.bracketCard}>
-                      {[{ p: p1, side: 'p1' }, { p: p2, side: 'p2' }].map(({ p, side }) => {
+                      {[{ p: p1, side: 0 }, { p: p2, side: 1 }].map(({ p, side }) => {
                         const isWinner = p && p.id === winnerId
                         const isElim = winnerId && p && p.id !== winnerId
                         return (
@@ -351,14 +395,23 @@ function BracketView({ matches, playerById, onResult, onClear }) {
                             className={`${styles.bracketPlayer} ${isWinner ? styles.bracketPlayerWinner : ''} ${isElim ? styles.bracketPlayerElim : ''}`}
                           >
                             <Body1>{p?.name ?? 'TBD'}</Body1>
-                            {isWinner && <Caption1>🏆</Caption1>}
+                            <span style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                              {m.result?.score && <Caption1>{m.result.score[side]}</Caption1>}
+                              {isWinner && <Caption1>🏆</Caption1>}
+                            </span>
                           </div>
                         )
                       })}
                       {canEnter && (
-                        <div style={{ display: 'flex', padding: '4px', gap: '4px', backgroundColor: tokens.colorNeutralBackground2 }}>
+                        <div style={{ display: 'flex', padding: '4px', gap: '4px', backgroundColor: tokens.colorNeutralBackground2, alignItems: 'center' }}>
                           <Button size="small" style={{ flex: 1 }} onClick={() => onResult(m.id, { winnerId: p1.id })}>{p1.name}</Button>
                           <Button size="small" style={{ flex: 1 }} onClick={() => onResult(m.id, { winnerId: p2.id })}>{p2.name}</Button>
+                          <ScorePopover
+                            p1Name={p1.name}
+                            p2Name={p2.name}
+                            allowDraw={false}
+                            onSave={(score) => onResult(m.id, { winnerId: score[0] > score[1] ? p1.id : p2.id, score })}
+                          />
                         </div>
                       )}
                       {m.result && onClear && p1 && p2 && (
@@ -489,6 +542,18 @@ export default function TournamentDetail() {
     save({ ...tournament, status: 'completed' })
   }
 
+  function reopen() {
+    save({ ...tournament, status: 'active' })
+  }
+
+  function movePlayer(index, delta) {
+    const players = [...tournament.players]
+    const target = index + delta
+    if (target < 0 || target >= players.length) return
+    ;[players[index], players[target]] = [players[target], players[index]]
+    save({ ...tournament, players })
+  }
+
   function handleRRResult(matchId, result) {
     const matches = tournament.matches.map(m => m.id === matchId ? { ...m, result } : m)
     save({ ...tournament, matches })
@@ -590,6 +655,9 @@ export default function TournamentDetail() {
           {tournament.status === 'active' && complete && (
             <Button appearance="primary" onClick={finish}>Finish tournament</Button>
           )}
+          {tournament.status === 'completed' && (
+            <Button appearance="secondary" onClick={reopen}>Reopen</Button>
+          )}
         </div>
       </div>
 
@@ -634,11 +702,13 @@ export default function TournamentDetail() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tournament.players.map(p => (
+                  {tournament.players.map((p, i) => (
                     <TableRow key={p.id}>
                       <TableCell>{p.name}</TableCell>
                       {tournament.status === 'upcoming' && (
                         <TableCellActions>
+                          <Button appearance="subtle" icon={<ArrowUpRegular />} aria-label="Move up" disabled={i === 0} onClick={() => movePlayer(i, -1)} />
+                          <Button appearance="subtle" icon={<ArrowDownRegular />} aria-label="Move down" disabled={i === tournament.players.length - 1} onClick={() => movePlayer(i, 1)} />
                           <Button appearance="subtle" icon={<DeleteRegular />} aria-label="Remove" onClick={() => removePlayer(p.id)} />
                         </TableCellActions>
                       )}
@@ -646,6 +716,11 @@ export default function TournamentDetail() {
                   ))}
                 </TableBody>
               </Table>
+            )}
+            {tournament.status === 'upcoming' && tournament.players.length >= 2 && (
+              <Caption1 style={{ color: tokens.colorNeutralForeground3, display: 'block', marginTop: '12px' }}>
+                Order matters: it sets bracket seeding and group/conference assignment.
+              </Caption1>
             )}
             {tournament.status === 'upcoming' && tournament.players.length < minPlayers && (
               <Caption1 style={{ color: tokens.colorNeutralForeground3, display: 'block', marginTop: '12px' }}>
