@@ -14,11 +14,14 @@ import Games from './pages/Games.jsx'
 import JSZip from 'jszip'
 import { buildDataFiles, getPublishSettings, savePublishSettings, publishToGitHub } from './publish.js'
 
+const MOBILE = '@media (max-width: 640px)'
+
 const useStyles = makeStyles({
   root: {
     display: 'flex',
     height: '100vh',
     backgroundColor: tokens.colorNeutralBackground1,
+    [MOBILE]: { flexDirection: 'column' },
   },
   sidebar: {
     width: '220px',
@@ -28,6 +31,14 @@ const useStyles = makeStyles({
     display: 'flex',
     flexDirection: 'column',
     flexShrink: 0,
+    [MOBILE]: {
+      width: '100%',
+      minHeight: 'auto',
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderRight: 'none',
+      borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
+    },
   },
   logo: {
     display: 'flex',
@@ -35,6 +46,7 @@ const useStyles = makeStyles({
     gap: '10px',
     padding: '20px 16px 16px',
     borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
+    [MOBILE]: { padding: '10px 12px', borderBottom: 'none' },
   },
   nav: {
     flex: 1,
@@ -42,6 +54,7 @@ const useStyles = makeStyles({
     flexDirection: 'column',
     gap: '2px',
     padding: '12px 8px',
+    [MOBILE]: { flexDirection: 'row', padding: '0', gap: '4px' },
   },
   navLink: {
     display: 'block',
@@ -65,11 +78,21 @@ const useStyles = makeStyles({
   exportArea: {
     padding: '12px 8px',
     borderTop: `1px solid ${tokens.colorNeutralStroke2}`,
+    [MOBILE]: { padding: '0 8px', borderTop: 'none', display: 'flex' },
+  },
+  sideButton: {
+    width: '100%',
+    justifyContent: 'flex-start',
+    [MOBILE]: { width: 'auto' },
+  },
+  sideButtonLabel: {
+    [MOBILE]: { display: 'none' },
   },
   main: {
     flex: 1,
     overflow: 'auto',
     padding: '28px 32px',
+    [MOBILE]: { padding: '16px' },
   },
 })
 
@@ -191,9 +214,9 @@ export default function App() {
               appearance="subtle"
               icon={<CloudArrowUpRegular />}
               onClick={() => setPublishOpen(true)}
-              style={{ width: '100%', justifyContent: 'flex-start' }}
+              className={styles.sideButton}
             >
-              <Body1>Publish</Body1>
+              <Body1 className={styles.sideButtonLabel}>Publish</Body1>
             </Button>
           </Tooltip>
           <Tooltip
@@ -204,9 +227,9 @@ export default function App() {
               appearance="subtle"
               icon={<ArrowDownloadRegular />}
               onClick={exportData}
-              style={{ width: '100%', justifyContent: 'flex-start' }}
+              className={styles.sideButton}
             >
-              <Body1>Export data</Body1>
+              <Body1 className={styles.sideButtonLabel}>Export data</Body1>
             </Button>
           </Tooltip>
         </div>
