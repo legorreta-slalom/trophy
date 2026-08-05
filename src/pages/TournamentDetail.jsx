@@ -10,7 +10,7 @@ import {
   Table, TableHeader, TableRow, TableHeaderCell, TableBody, TableCell, TableCellActions,
   Dialog, DialogSurface, DialogTitle, DialogBody, DialogActions, DialogContent, DialogTrigger,
 } from '@fluentui/react-components'
-import { AddRegular, DeleteRegular, ChevronLeftRegular } from '@fluentui/react-icons'
+import { AddRegular, DeleteRegular, ChevronLeftRegular, DismissRegular } from '@fluentui/react-icons'
 import { getTournaments, saveTournament, getGames } from '../store.js'
 import { FORMATS, STATUS_APPEARANCE } from '../constants.js'
 import * as RR from '../engines/roundRobin.js'
@@ -124,7 +124,7 @@ function roundLabel(round, maxRound) {
   return `Round ${round}`
 }
 
-function RoundRobinView({ matches, playerById, onResult }) {
+function RoundRobinView({ matches, playerById, onResult, onClear }) {
   const styles = useStyles()
   const rounds = {}
   for (const m of matches) {
@@ -148,7 +148,12 @@ function RoundRobinView({ matches, playerById, onResult }) {
                   <Body1 className={m.result?.winner === 'player2' ? styles.resultWinner : ''}>{m.player2Id === null ? 'Bye' : p2?.name ?? '?'}</Body1>
                 </div>
                 {m.result ? (
-                  <Caption1>{m.player2Id === null ? 'Bye' : m.result.winner === 'draw' ? 'Draw' : m.result.winner === 'player1' ? `${p1?.name} wins` : `${p2?.name} wins`}</Caption1>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Caption1>{m.player2Id === null ? 'Bye' : m.result.winner === 'draw' ? 'Draw' : m.result.winner === 'player1' ? `${p1?.name} wins` : `${p2?.name} wins`}</Caption1>
+                    {onClear && m.player2Id !== null && (
+                      <Button appearance="subtle" size="small" icon={<DismissRegular />} aria-label="Clear result" onClick={() => onClear(m.id)} />
+                    )}
+                  </span>
                 ) : onResult ? (
                   <div className={styles.matchResult}>
                     <Button size="small" onClick={() => onResult(m.id, { winner: 'player1' })}>{p1?.name}</Button>
@@ -202,7 +207,7 @@ function StandingsView({ players, matches }) {
   )
 }
 
-function LeaderboardView({ tournament, playerById, onRecord }) {
+function LeaderboardView({ tournament, playerById, onRecord, onDelete }) {
   const styles = useStyles()
   const [p1Id, setP1Id] = useState('')
   const [p2Id, setP2Id] = useState('')
@@ -262,7 +267,12 @@ function LeaderboardView({ tournament, playerById, onRecord }) {
                 <Caption1 className={styles.matchVs}>vs</Caption1>
                 <Body1 className={m.result?.winner === 'player2' ? styles.resultWinner : ''}>{p2?.name ?? '?'}</Body1>
               </div>
-              <Caption1>{m.result.winner === 'draw' ? 'Draw' : m.result.winner === 'player1' ? `${p1?.name} wins` : `${p2?.name} wins`}</Caption1>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Caption1>{m.result.winner === 'draw' ? 'Draw' : m.result.winner === 'player1' ? `${p1?.name} wins` : `${p2?.name} wins`}</Caption1>
+                {onDelete && (
+                  <Button appearance="subtle" size="small" icon={<DismissRegular />} aria-label="Delete result" onClick={() => onDelete(m.id)} />
+                )}
+              </span>
             </div>
           )
         })
@@ -271,7 +281,7 @@ function LeaderboardView({ tournament, playerById, onRecord }) {
   )
 }
 
-function GroupsView({ tournament, playerById, onResult, groupLabel = (g) => `Group ${g}` }) {
+function GroupsView({ tournament, playerById, onResult, onClear, groupLabel = (g) => `Group ${g}` }) {
   const styles = useStyles()
   return (
     <>
@@ -284,6 +294,7 @@ function GroupsView({ tournament, playerById, onResult, groupLabel = (g) => `Gro
                 matches={GK.groupMatches(tournament.matches, g)}
                 playerById={playerById}
                 onResult={onResult}
+                onClear={onClear}
               />
             </div>
             <div style={{ flex: '0 1 420px' }}>
@@ -299,7 +310,7 @@ function GroupsView({ tournament, playerById, onResult, groupLabel = (g) => `Gro
   )
 }
 
-function BracketView({ matches, playerById, onResult }) {
+function BracketView({ matches, playerById, onResult, onClear }) {
   const styles = useStyles()
   if (!matches.length) return null
 
@@ -344,6 +355,11 @@ function BracketView({ matches, playerById, onResult }) {
                         <div style={{ display: 'flex', padding: '4px', gap: '4px', backgroundColor: tokens.colorNeutralBackground2 }}>
                           <Button size="small" style={{ flex: 1 }} onClick={() => onResult(m.id, { winnerId: p1.id })}>{p1.name}</Button>
                           <Button size="small" style={{ flex: 1 }} onClick={() => onResult(m.id, { winnerId: p2.id })}>{p2.name}</Button>
+                        </div>
+                      )}
+                      {m.result && onClear && p1 && p2 && (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '2px', backgroundColor: tokens.colorNeutralBackground2 }}>
+                          <Button appearance="subtle" size="small" icon={<DismissRegular />} onClick={() => onClear(m.id)}>Clear</Button>
                         </div>
                       )}
                     </div>
@@ -447,6 +463,23 @@ export default function TournamentDetail() {
     const updated = tournament.matches.map(m => m.id === matchId ? { ...m, result } : m)
     const ko = SE.advanceWinners(updated.filter(m => m.phase === 'knockout'))
     save({ ...tournament, matches: [...updated.filter(m => m.phase !== 'knockout'), ...ko] })
+  }
+
+  function handleClear(matchId) {
+    save({ ...tournament, matches: tournament.matches.map(m => m.id === matchId ? { ...m, result: null } : m) })
+  }
+
+  function handleSEClear(matchId) {
+    save({ ...tournament, matches: SE.clearResult(tournament.matches, matchId) })
+  }
+
+  function handleKOClear(matchId) {
+    const ko = SE.clearResult(tournament.matches.filter(m => m.phase === 'knockout'), matchId)
+    save({ ...tournament, matches: [...tournament.matches.filter(m => m.phase !== 'knockout'), ...ko] })
+  }
+
+  function handleLBDelete(matchId) {
+    save({ ...tournament, matches: tournament.matches.filter(m => m.id !== matchId) })
   }
 
   const game = games.find(g => g.id === tournament.gameId)
@@ -581,7 +614,12 @@ export default function TournamentDetail() {
         )}
 
         {selectedTab === 'matches' && isLeaderboard && (
-          <LeaderboardView tournament={tournament} playerById={playerById} onRecord={handleLeaderboardRecord} />
+          <LeaderboardView
+            tournament={tournament}
+            playerById={playerById}
+            onRecord={handleLeaderboardRecord}
+            onDelete={tournament.status === 'active' ? handleLBDelete : undefined}
+          />
         )}
 
         {selectedTab === 'matches' && !isLeaderboard && (
@@ -590,6 +628,7 @@ export default function TournamentDetail() {
               matches={isSP ? SP.seasonMatches(tournament.matches) : tournament.matches}
               playerById={playerById}
               onResult={tournament.status === 'active' ? handleRRResult : undefined}
+              onClear={tournament.status === 'active' && !knockoutHasStarted ? handleClear : undefined}
             />
             {swissCanAdvance && (
               <Button appearance="primary" onClick={generateNextSwissRound}>
@@ -611,6 +650,7 @@ export default function TournamentDetail() {
             tournament={tournament}
             playerById={playerById}
             onResult={tournament.status === 'active' ? handleRRResult : undefined}
+            onClear={tournament.status === 'active' && !knockoutHasStarted ? handleClear : undefined}
             groupLabel={isCF ? (g) => `${g} Conference` : undefined}
           />
         )}
@@ -620,6 +660,7 @@ export default function TournamentDetail() {
             matches={isBracket ? tournament.matches : GK.knockoutMatches(tournament.matches)}
             playerById={playerById}
             onResult={tournament.status === 'active' ? (isBracket ? handleSEResult : handleKOResult) : undefined}
+            onClear={tournament.status === 'active' ? (isBracket ? handleSEClear : handleKOClear) : undefined}
           />
         )}
       </div>

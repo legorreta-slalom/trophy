@@ -14,20 +14,16 @@ export const seasonComplete = (matches) =>
 
 export const playoffsStarted = (matches) => knockoutMatches(matches).length > 0
 
-// Top 4 qualify (top 8 when 8+ players). Standard bracket seeding: the two
-// top seeds land in opposite halves so they can only meet in the final.
-const SEED_ORDER = { 4: [0, 3, 1, 2], 8: [0, 7, 3, 4, 1, 6, 2, 5] }
-
+// Top 4 qualify (top 8 when 8+ players). SE.generate handles standard
+// bracket seeding, so the standings order is the seed ranking.
 export function playoffSize(playerCount) {
   return playerCount >= 8 ? 8 : 4
 }
 
 export function generatePlayoffs(players, matches) {
   const standings = RR.computeStandings(players, seasonMatches(matches))
-  const size = playoffSize(players.length)
-  const qualified = standings.slice(0, size)
-  const seeds = SEED_ORDER[size].map(i => qualified[i])
-  const knockout = SE.generate(seeds).map(m => ({ ...m, phase: 'knockout' }))
+  const qualified = standings.slice(0, playoffSize(players.length))
+  const knockout = SE.generate(qualified).map(m => ({ ...m, phase: 'knockout' }))
   return [...matches, ...knockout]
 }
 

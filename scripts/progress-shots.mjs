@@ -4,7 +4,7 @@
 import puppeteer from 'puppeteer-core'
 import { readFileSync, mkdirSync } from 'fs'
 
-const [name, path, seedFile, tabText, size] = process.argv.slice(2)
+const [name, path, seedFile, tabText, size, scheme] = process.argv.slice(2)
 const [width, height] = (size ?? '1280x860').split('x').map(Number)
 const BASE = 'http://localhost:5173/trophy'
 
@@ -17,6 +17,9 @@ const browser = await puppeteer.launch({
 })
 const page = await browser.newPage()
 await page.setViewport({ width, height })
+if (scheme) {
+  await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: scheme }])
+}
 
 if (seedFile) {
   const seed = JSON.parse(readFileSync(seedFile, 'utf8'))

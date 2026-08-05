@@ -21,7 +21,7 @@ export function generateFinals(players, matches) {
   const seeds = CONFERENCES.flatMap(conf =>
     RR.computeStandings(groupPlayers(players, matches, conf), groupMatches(matches, conf)).slice(0, 2)
   )
-  const knockout = SE.generate(seeds).map(m => ({ ...m, phase: 'knockout' }))
+  const knockout = SE.generate(seeds, { prePaired: true }).map(m => ({ ...m, phase: 'knockout' }))
   return [...matches, ...knockout]
 }
 

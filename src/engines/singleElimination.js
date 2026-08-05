@@ -4,10 +4,25 @@ function nextPow2(n) {
   return p
 }
 
-export function generate(players) {
+// Standard bracket order: seed 1 and 2 in opposite halves, byes (bottom
+// seeds) land against top seeds, never against each other.
+// size 4 → [0,3,1,2], size 8 → [0,7,3,4,1,6,2,5]
+function bracketOrder(size) {
+  let order = [0, 1]
+  while (order.length < size) {
+    const n = order.length * 2
+    order = order.flatMap(x => [x, n - 1 - x])
+  }
+  return order
+}
+
+// Players are treated as a seed ranking (first = top seed) unless prePaired,
+// in which case they are already laid out in bracket order (adjacent pairs
+// meet) — used by the league formats that build their own matchups.
+export function generate(players, { prePaired = false } = {}) {
   const size = nextPow2(players.length)
-  // Pad with nulls (byes) to fill the bracket
-  const seeded = [...players, ...Array(size - players.length).fill(null)]
+  const padded = [...players, ...Array(size - players.length).fill(null)]
+  const seeded = prePaired ? padded : bracketOrder(size).map(i => padded[i])
   const totalRounds = Math.log2(size)
   const matches = []
 
@@ -52,6 +67,27 @@ export function advanceWinners(matches) {
     else downstream.player2Id = m.result.winnerId
   }
   return updated
+}
+
+// Clear a result and every result on its downstream path, then re-propagate.
+// Rounds beyond the first get their slots rebuilt from surviving results.
+export function clearResult(matches, matchId) {
+  const target = matches.find(m => m.id === matchId)
+  if (!target) return matches
+
+  const maxRound = Math.max(...matches.map(m => m.round))
+  const onPath = new Set([matchId])
+  for (let r = target.round + 1, p = Math.floor(target.position / 2); r <= maxRound; r++, p = Math.floor(p / 2)) {
+    const m = matches.find(x => x.round === r && x.position === p)
+    if (m) onPath.add(m.id)
+  }
+
+  const updated = matches.map(m => ({
+    ...m,
+    result: onPath.has(m.id) ? null : m.result,
+    ...(m.round > 1 ? { player1Id: null, player2Id: null } : {}),
+  }))
+  return advanceWinners(updated)
 }
 
 export function isComplete(matches) {

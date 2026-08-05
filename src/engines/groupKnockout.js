@@ -38,7 +38,7 @@ export function generateKnockout(players, matches) {
     RR.computeStandings(groupPlayers(players, matches, g), groupMatches(matches, g)).slice(0, 2)
   )
   const seeds = groups.flatMap((_, i) => [top2[i][0], top2[(i + 1) % groups.length][1]])
-  const knockout = SE.generate(seeds).map(m => ({ ...m, phase: 'knockout' }))
+  const knockout = SE.generate(seeds, { prePaired: true }).map(m => ({ ...m, phase: 'knockout' }))
   return [...matches, ...knockout]
 }
 

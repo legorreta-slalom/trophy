@@ -43,9 +43,35 @@ export function computeStandings(players, matches) {
       if (p1) p1.l++
     }
   }
-  return players
-    .map(p => ({ ...p, ...stats[p.id] }))
-    .sort((a, b) => b.pts - a.pts || b.w - a.w || a.name.localeCompare(b.name))
+  const rows = players.map(p => ({ ...p, ...stats[p.id] }))
+
+  // Head-to-head tiebreak: within each points-tie group, rank by points
+  // earned in matches among the tied players only.
+  const groups = new Map()
+  for (const r of rows) {
+    if (!groups.has(r.pts)) groups.set(r.pts, [])
+    groups.get(r.pts).push(r)
+  }
+  const h2h = new Map(rows.map(r => [r.id, 0]))
+  for (const group of groups.values()) {
+    if (group.length < 2) continue
+    const ids = new Set(group.map(r => r.id))
+    for (const m of matches) {
+      if (!m.result || !ids.has(m.player1Id) || !ids.has(m.player2Id)) continue
+      if (m.result.winner === 'draw') {
+        h2h.set(m.player1Id, h2h.get(m.player1Id) + 1)
+        h2h.set(m.player2Id, h2h.get(m.player2Id) + 1)
+      } else if (m.result.winner === 'player1') {
+        h2h.set(m.player1Id, h2h.get(m.player1Id) + 3)
+      } else {
+        h2h.set(m.player2Id, h2h.get(m.player2Id) + 3)
+      }
+    }
+  }
+
+  return rows.sort((a, b) =>
+    b.pts - a.pts || h2h.get(b.id) - h2h.get(a.id) || b.w - a.w || a.name.localeCompare(b.name)
+  )
 }
 
 export const isComplete = (matches) => matches.length > 0 && matches.every(m => m.result !== null)
