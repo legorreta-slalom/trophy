@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Routes, Route, NavLink } from 'react-router-dom'
 import {
   makeStyles, tokens,
@@ -14,8 +14,10 @@ import Games from './pages/Games.jsx'
 import HallOfFame from './pages/HallOfFame.jsx'
 import JSZip from 'jszip'
 import { buildDataFiles, getPublishSettings, savePublishSettings, publishToGitHub, getAccess } from './publish.js'
-import { decryptToken } from './pinCrypto.js'
 import { pullPublished } from './hydrate.js'
+import { flush, getSyncStatus, subscribe } from './sync.js'
+import { REPO, BRANCH } from './repo.js'
+import UnlockDialog from './components/UnlockDialog.jsx'
 
 const MOBILE = '@media (max-width: 640px)'
 
@@ -119,13 +121,12 @@ function PublishDialog({ open, onClose }) {
 
   function set(field, value) { setSettings(s => ({ ...s, [field]: value })) }
 
-  const valid = /^[\w.-]+\/[\w.-]+$/.test(settings.repo) && settings.branch.trim() && settings.token.trim()
-
   async function publish() {
     savePublishSettings(settings)
     setState({ phase: 'publishing' })
     try {
-      const sha = await publishToGitHub(settings)
+      await flush()
+      const sha = await publishToGitHub({ token: settings.token })
       setState({ phase: 'done', sha })
     } catch (err) {
       setState({ phase: 'error', message: err.message })
@@ -136,16 +137,13 @@ function PublishDialog({ open, onClose }) {
     <Dialog open={open} onOpenChange={(_, { open }) => !open && onClose()}>
       <DialogSurface style={{ maxWidth: '440px' }}>
         <DialogBody>
-          <DialogTitle>Publish to GitHub</DialogTitle>
+          <DialogTitle>Sync settings</DialogTitle>
           <DialogContent>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <Field label="Repository" hint="owner/name, e.g. legorreta-slalom/trophy" required>
-                <Input value={settings.repo} onChange={(_, { value }) => set('repo', value)} placeholder="owner/repo" />
-              </Field>
-              <Field label="Branch" required>
-                <Input value={settings.branch} onChange={(_, { value }) => set('branch', value)} />
-              </Field>
-              <Field label="Personal access token" hint="Needs contents: write on the repo. Stored only in your browser." required>
+              <Caption1>
+                Data syncs to <strong>{REPO}</strong> ({BRANCH}). To run your own TROPHY, fork the repo — the fork becomes your backend.
+              </Caption1>
+              <Field label="Personal access token" hint="Needs contents: write on the repo. Stored only in your browser. Changes auto-sync in batches once set." required>
                 <Input type="password" value={settings.token} onChange={(_, { value }) => set('token', value)} />
               </Field>
               <Field label="Participant PIN" hint="Optional. Publishes the token encrypted with this PIN so participants can unlock result reporting.">
@@ -153,7 +151,7 @@ function PublishDialog({ open, onClose }) {
               </Field>
               {state.phase === 'done' && (
                 <Caption1 style={{ color: tokens.colorPaletteGreenForeground1 }}>
-                  Published — commit {state.sha.slice(0, 7)}. GitHub Pages will rebuild shortly.
+                  Published — commit {state.sha.slice(0, 7)}.
                 </Caption1>
               )}
               {state.phase === 'error' && (
@@ -169,57 +167,11 @@ function PublishDialog({ open, onClose }) {
             </DialogTrigger>
             <Button
               appearance="primary"
-              disabled={!valid || state.phase === 'publishing'}
+              disabled={!settings.token.trim() || state.phase === 'publishing'}
               icon={state.phase === 'publishing' ? <Spinner size="tiny" /> : <CloudArrowUpRegular />}
               onClick={publish}
             >
-              {state.phase === 'publishing' ? 'Publishing…' : 'Publish'}
-            </Button>
-          </DialogActions>
-        </DialogBody>
-      </DialogSurface>
-    </Dialog>
-  )
-}
-
-function UnlockDialog({ open, onClose, onUnlocked }) {
-  const [pin, setPin] = useState('')
-  const [error, setError] = useState('')
-
-  async function unlock() {
-    try {
-      const access = getAccess()
-      const token = await decryptToken(access, pin.trim())
-      savePublishSettings({ repo: access.repo, branch: access.branch, token, pin: '' })
-      onUnlocked()
-      onClose()
-    } catch {
-      setError('Wrong PIN.')
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(_, { open }) => !open && onClose()}>
-      <DialogSurface style={{ maxWidth: '380px' }}>
-        <DialogBody>
-          <DialogTitle>Report results</DialogTitle>
-          <DialogContent>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <Field label="PIN" hint="Ask the tournament host for the PIN." validationMessage={error || undefined}>
-                <Input
-                  value={pin}
-                  onChange={(_, { value }) => { setPin(value); setError('') }}
-                  onKeyDown={e => e.key === 'Enter' && pin.trim() && unlock()}
-                />
-              </Field>
-            </div>
-          </DialogContent>
-          <DialogActions>
-            <DialogTrigger disableButtonEnhancement>
-              <Button appearance="secondary">Cancel</Button>
-            </DialogTrigger>
-            <Button appearance="primary" disabled={!pin.trim()} icon={<LockOpenRegular />} onClick={unlock}>
-              Unlock
+              {state.phase === 'publishing' ? 'Publishing…' : 'Save & publish now'}
             </Button>
           </DialogActions>
         </DialogBody>
@@ -273,6 +225,28 @@ function PullDialog({ open, onClose }) {
   )
 }
 
+function SyncStatus() {
+  const [status, setStatus] = useState(getSyncStatus)
+  useEffect(() => subscribe(setStatus), [])
+
+  if (!getPublishSettings().token) return null
+  const time = status.lastSync ? new Date(status.lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null
+
+  return (
+    <div style={{ padding: '4px 12px 8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <Caption1 style={{ color: status.state === 'error' ? tokens.colorPaletteRedForeground1 : tokens.colorNeutralForeground3 }}>
+        {status.state === 'syncing' ? 'Syncing…'
+          : status.state === 'error' ? `Sync failed: ${status.error}`
+          : status.pending > 0 ? `${status.pending} change${status.pending === 1 ? '' : 's'} pending`
+          : time ? `Synced ${time}` : 'Synced'}
+      </Caption1>
+      {(status.pending > 0 || status.state === 'error') && status.state !== 'syncing' && (
+        <Button appearance="subtle" size="small" onClick={flush}>Sync now</Button>
+      )}
+    </div>
+  )
+}
+
 export default function App() {
   const styles = useStyles()
   const [publishOpen, setPublishOpen] = useState(false)
@@ -314,6 +288,7 @@ export default function App() {
           </NavLink>
         </nav>
         <div className={styles.exportArea}>
+          <SyncStatus />
           {canReport && (
             <Tooltip content="Enter the tournament PIN to unlock result reporting." relationship="description">
               <Button
@@ -337,7 +312,7 @@ export default function App() {
             </Button>
           </Tooltip>
           <Tooltip
-            content="Commit data/ files to your GitHub repo directly. Pages rebuilds automatically."
+            content="Token and participant PIN. Once a token is set, changes auto-sync to the repo in batches."
             relationship="description"
           >
             <Button
@@ -346,7 +321,7 @@ export default function App() {
               onClick={() => setPublishOpen(true)}
               className={styles.sideButton}
             >
-              <Body1 className={styles.sideButtonLabel}>Publish</Body1>
+              <Body1 className={styles.sideButtonLabel}>Sync settings</Body1>
             </Button>
           </Tooltip>
           <Tooltip

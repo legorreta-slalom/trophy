@@ -1,10 +1,21 @@
 const NS = 'trophy:'
 
+// Sync hook: the sync layer registers a callback fired on every data write,
+// so mutations can be batched into background commits.
+let onChange = null
+export const setOnChange = (fn) => { onChange = fn }
+
 export const getGames = () => JSON.parse(localStorage.getItem(NS + 'games') ?? '[]')
-export const saveGames = (games) => localStorage.setItem(NS + 'games', JSON.stringify(games))
+export const saveGames = (games) => {
+  localStorage.setItem(NS + 'games', JSON.stringify(games))
+  onChange?.()
+}
 
 export const getTournaments = () => JSON.parse(localStorage.getItem(NS + 'tournaments') ?? '[]')
-export const saveTournaments = (ts) => localStorage.setItem(NS + 'tournaments', JSON.stringify(ts))
+export const saveTournaments = (ts) => {
+  localStorage.setItem(NS + 'tournaments', JSON.stringify(ts))
+  onChange?.()
+}
 
 export function saveGame(game) {
   const all = getGames()

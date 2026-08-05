@@ -1,5 +1,6 @@
 import { getGames, getTournaments } from './store.js'
 import { encryptToken } from './pinCrypto.js'
+import { REPO, BRANCH } from './repo.js'
 
 // Map of repo path → file content, used by both ZIP export and GitHub publish.
 // Files live under public/ so Vite copies them into the built site, where the
@@ -20,10 +21,10 @@ export async function buildDataFiles() {
   }
 
   // Participant self-reporting: ship the PAT encrypted with the host's PIN.
-  const { repo, branch, token, pin } = getPublishSettings()
+  const { token, pin } = getPublishSettings()
   if (pin?.trim() && token) {
     const encrypted = await encryptToken(token, pin.trim())
-    files['public/data/access.json'] = JSON.stringify({ repo, branch, ...encrypted }, null, 2)
+    files['public/data/access.json'] = JSON.stringify(encrypted, null, 2)
   }
 
   return files
@@ -32,7 +33,7 @@ export async function buildDataFiles() {
 const NS = 'trophy:'
 
 export const getPublishSettings = () => ({
-  repo: '', branch: 'main', token: '', pin: '',
+  token: '', pin: '',
   ...JSON.parse(localStorage.getItem(NS + 'publish') ?? '{}'),
 })
 
@@ -47,9 +48,9 @@ export const saveAccess = (a) =>
   localStorage.setItem(NS + 'access', JSON.stringify(a))
 
 // Single commit via the Git Data API: base commit → new tree → commit → update ref.
-export async function publishToGitHub({ repo, branch, token }) {
+export async function publishToGitHub({ token, message = 'chore: publish TROPHY data' }) {
   const api = async (path, options = {}) => {
-    const res = await fetch(`https://api.github.com/repos/${repo}${path}`, {
+    const res = await fetch(`https://api.github.com/repos/${REPO}${path}`, {
       ...options,
       headers: {
         Authorization: `Bearer ${token}`,
@@ -66,7 +67,7 @@ export async function publishToGitHub({ repo, branch, token }) {
 
   const files = await buildDataFiles()
 
-  const ref = await api(`/git/ref/heads/${branch}`)
+  const ref = await api(`/git/ref/heads/${BRANCH}`)
   const baseCommit = await api(`/git/commits/${ref.object.sha}`)
 
   const tree = await api('/git/trees', {
@@ -82,13 +83,13 @@ export async function publishToGitHub({ repo, branch, token }) {
   const commit = await api('/git/commits', {
     method: 'POST',
     body: JSON.stringify({
-      message: 'chore: publish TROPHY data',
+      message,
       tree: tree.sha,
       parents: [ref.object.sha],
     }),
   })
 
-  await api(`/git/refs/heads/${branch}`, {
+  await api(`/git/refs/heads/${BRANCH}`, {
     method: 'PATCH',
     body: JSON.stringify({ sha: commit.sha }),
   })

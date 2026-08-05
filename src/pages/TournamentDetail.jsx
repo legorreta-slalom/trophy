@@ -10,8 +10,12 @@ import {
   Table, TableHeader, TableRow, TableHeaderCell, TableBody, TableCell, TableCellActions,
   Dialog, DialogSurface, DialogTitle, DialogBody, DialogActions, DialogContent, DialogTrigger,
 } from '@fluentui/react-components'
-import { AddRegular, DeleteRegular, ChevronLeftRegular, DismissRegular } from '@fluentui/react-icons'
+import { AddRegular, DeleteRegular, ChevronLeftRegular, DismissRegular, QrCodeRegular } from '@fluentui/react-icons'
+import { useEffect } from 'react'
+import QRCode from 'qrcode'
 import { getTournaments, saveTournament, getGames } from '../store.js'
+import { getAccess, getPublishSettings } from '../publish.js'
+import UnlockDialog from '../components/UnlockDialog.jsx'
 import { FORMATS, STATUS_APPEARANCE } from '../constants.js'
 import * as RR from '../engines/roundRobin.js'
 import * as SE from '../engines/singleElimination.js'
@@ -374,6 +378,38 @@ function BracketView({ matches, playerById, onResult, onClear }) {
   )
 }
 
+function ShareDialog({ open, onClose, tournament }) {
+  const [qr, setQr] = useState(null)
+  const url = `${window.location.origin}${import.meta.env.BASE_URL}tournaments/${tournament.id}#report`
+
+  useEffect(() => {
+    if (open) QRCode.toDataURL(url, { width: 280, margin: 2 }).then(setQr)
+  }, [open, url])
+
+  return (
+    <Dialog open={open} onOpenChange={(_, { open }) => !open && onClose()}>
+      <DialogSurface style={{ maxWidth: '360px' }}>
+        <DialogBody>
+          <DialogTitle>{tournament.name}</DialogTitle>
+          <DialogContent>
+            <div style={{ textAlign: 'center' }}>
+              {qr && <img src={qr} alt={`QR code linking to ${tournament.name}`} style={{ width: '280px', maxWidth: '100%' }} />}
+              <Caption1 style={{ display: 'block', marginTop: '4px' }}>
+                Scan to open this tournament and report results. You&rsquo;ll need the PIN from the host.
+              </Caption1>
+            </div>
+          </DialogContent>
+          <DialogActions>
+            <DialogTrigger disableButtonEnhancement>
+              <Button appearance="secondary">Close</Button>
+            </DialogTrigger>
+          </DialogActions>
+        </DialogBody>
+      </DialogSurface>
+    </Dialog>
+  )
+}
+
 export default function TournamentDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -386,6 +422,11 @@ export default function TournamentDetail() {
   const [games] = useState(getGames)
   const [selectedTab, setSelectedTab] = useState('players')
   const [newPlayerName, setNewPlayerName] = useState('')
+  const [shareOpen, setShareOpen] = useState(false)
+  // #report deep link (from the QR): open the PIN unlock if this browser can't report yet
+  const [unlockOpen, setUnlockOpen] = useState(() =>
+    window.location.hash === '#report' && Boolean(getAccess()) && !getPublishSettings().token
+  )
 
   if (!tournament) {
     return <Body1>Tournament not found.</Body1>
@@ -539,6 +580,7 @@ export default function TournamentDetail() {
           </div>
         </div>
         <div className={styles.headerActions}>
+          <Button appearance="subtle" icon={<QrCodeRegular />} aria-label="Share QR" onClick={() => setShareOpen(true)} />
           {tournament.status === 'upcoming' && tournament.players.length >= minPlayers && (
             <Button appearance="primary" onClick={start}>Start tournament</Button>
           )}
@@ -664,6 +706,9 @@ export default function TournamentDetail() {
           />
         )}
       </div>
+
+      <ShareDialog open={shareOpen} onClose={() => setShareOpen(false)} tournament={tournament} />
+      <UnlockDialog open={unlockOpen} onClose={() => setUnlockOpen(false)} />
     </>
   )
 }

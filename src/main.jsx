@@ -4,10 +4,12 @@ import { BrowserRouter } from 'react-router-dom'
 import { FluentProvider, webLightTheme, webDarkTheme } from '@fluentui/react-components'
 import App from './App.jsx'
 import { hydrateFromPublished } from './hydrate.js'
+import { initSync } from './sync.js'
 import './index.css'
 
 // Load published data for fresh browsers (spectators) before first render.
 await hydrateFromPublished()
+initSync()
 
 function Root() {
   const [dark, setDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches)

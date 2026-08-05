@@ -1,26 +1,42 @@
 import { getGames, getTournaments, saveGames, saveTournaments } from './store.js'
 import { saveAccess } from './publish.js'
+import { withSyncPaused } from './sync.js'
+import { REPO, BRANCH } from './repo.js'
+
+// Read from the repo directly (fresh immediately after a sync commit), falling
+// back to the files bundled with the deployed site (dev server, offline CDN).
+const SOURCES = [
+  `https://raw.githubusercontent.com/${REPO}/${BRANCH}/public/data/`,
+  `${import.meta.env.BASE_URL}data/`,
+]
+
+async function fetchJson(file, base) {
+  const res = await fetch(`${base}${file}`, { cache: 'no-store' })
+  return res.ok ? res.json() : null
+}
 
 // Fetch published data and replace local state. Throws if nothing is published.
 export async function pullPublished() {
-  const base = import.meta.env.BASE_URL
-  const idxRes = await fetch(`${base}data/index.json`, { cache: 'no-store' })
-  if (!idxRes.ok) throw new Error('No published data found.')
-  const index = await idxRes.json()
+  let base = null
+  let index = null
+  for (const source of SOURCES) {
+    index = await fetchJson('index.json', source).catch(() => null)
+    if (index) { base = source; break }
+  }
+  if (!index) throw new Error('No published data found.')
 
-  const gamesRes = await fetch(`${base}data/games.json`, { cache: 'no-store' })
-  if (gamesRes.ok) saveGames(await gamesRes.json())
+  await withSyncPaused(async () => {
+    const games = await fetchJson('games.json', base)
+    if (games) saveGames(games)
 
-  const accessRes = await fetch(`${base}data/access.json`, { cache: 'no-store' })
-  if (accessRes.ok) saveAccess(await accessRes.json())
+    const access = await fetchJson('access.json', base)
+    if (access) saveAccess(access)
 
-  const tournaments = await Promise.all(
-    index.map(t =>
-      fetch(`${base}data/tournaments/${t.id}.json`, { cache: 'no-store' })
-        .then(r => r.ok ? r.json() : null)
+    const tournaments = await Promise.all(
+      index.map(t => fetchJson(`tournaments/${t.id}.json`, base).catch(() => null))
     )
-  )
-  saveTournaments(tournaments.filter(Boolean))
+    saveTournaments(tournaments.filter(Boolean))
+  })
 }
 
 // Spectator bootstrap: if this browser has no data, load the published JSON.

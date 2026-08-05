@@ -34,12 +34,22 @@ npm run dev
 
 Push to `main`. The GitHub Actions workflow builds and deploys to GitHub Pages automatically.
 
-## Publishing Tournament Data
+## Data Sync
 
-Two options, both in the sidebar:
+This repo IS the backend. Tournament state lives in `public/data/` and syncs automatically:
 
-- **Publish** — commits `data/` files straight to your repo via the GitHub API. Needs a personal access token with `contents: write` (stored only in your browser's localStorage).
-- **Export data** — downloads `trophy-data.zip`; unzip into your repo root and commit manually.
+- Set a personal access token (`contents: write`) once in **Sync settings** — after that, changes batch into single commits (quiet period ~2 min, max age ~10 min, or **Sync now**). The token never leaves your browser.
+- Fresh browsers hydrate from the published data automatically; **Pull latest** re-syncs on demand.
+- Set an optional **Participant PIN** to let players self-report: the token ships encrypted (PBKDF2 → AES-GCM) in `data/access.json`, and the tournament's QR code (share button) deep-links phones straight to the PIN unlock.
+- **Export data** still downloads the full `trophy-data.zip` as a manual fallback.
+
+## Running Your Own
+
+Fork this repo — your fork becomes your backend:
+
+1. Change `REPO` in [src/repo.js](src/repo.js) to your fork
+2. Enable GitHub Pages (Actions build) in your fork's settings
+3. Push — the workflow deploys your instance
 
 ## Design Philosophy
 

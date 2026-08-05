@@ -3,6 +3,10 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+    # Data sync commits don't need a site rebuild — the app reads data
+    # from raw.githubusercontent, not from the deployed bundle.
+    paths-ignore:
+      - 'public/data/**'
 
 permissions:
   contents: read
