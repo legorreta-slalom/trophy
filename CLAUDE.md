@@ -27,6 +27,13 @@ TROPHY runs entirely in the browser. No server, no database, no infrastructure. 
 **Simplicity over abstraction** — three similar lines beat a premature helper.
 **No comments that explain what** — only comments that explain *why*, when the why is non-obvious.
 
+## Project Management
+
+- **All tasks, backlog items, and feature requests are tracked as GitHub Issues** on [legorreta-slalom/trophy](https://github.com/legorreta-slalom/trophy/issues).
+- Before starting any new feature or fix, check if an issue exists — create one if not.
+- Reference the issue number in commit messages (`#123`).
+- No separate task files, no Notion, no spreadsheets — GitHub Issues is the single source of truth.
+
 ## Practical Rules
 
 - No frameworks or libraries beyond what's genuinely necessary.
