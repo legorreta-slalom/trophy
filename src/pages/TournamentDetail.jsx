@@ -531,12 +531,19 @@ function BracketView({ matches, playerById, onResult, onClear }) {
                           >
                             <Body1><PlayerLabel player={p} size={24} fallback="TBD" /></Body1>
                             <span style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                              {m.result?.score && <Caption1>{m.result.score[side]}</Caption1>}
+                              {m.games?.length
+                                ? <Caption1>{SE.seriesWins(m, p?.id)}</Caption1>
+                                : m.result?.score && <Caption1>{m.result.score[side]}</Caption1>}
                               {isWinner && <Caption1>🏆</Caption1>}
                             </span>
                           </div>
                         )
                       })}
+                      {canEnter && m.games?.length > 0 && (
+                        <div style={{ textAlign: 'center', padding: '2px', backgroundColor: tokens.colorNeutralBackground2 }}>
+                          <Caption1>Game {m.games.length + 1}</Caption1>
+                        </div>
+                      )}
                       {canEnter && (
                         <div style={{ display: 'flex', padding: '4px', gap: '4px', backgroundColor: tokens.colorNeutralBackground2, alignItems: 'center' }}>
                           <Button size="small" style={{ flex: 1 }} onClick={() => onResult(m.id, { winnerId: p1.id })}>{p1.name}</Button>
@@ -706,14 +713,22 @@ export default function TournamentDetail() {
     save({ ...tournament, matches })
   }
 
+  // Bo1: the click IS the match result. BoN: it records one game; the match
+  // resolves when someone reaches the needed win count.
+  function applyBracketEntry(matches, matchId, result) {
+    const bestOf = tournament.bestOf ?? 1
+    return bestOf > 1
+      ? SE.recordGame(matches, matchId, { winnerId: result.winnerId, ...(result.score ? { score: result.score } : {}) }, bestOf)
+      : matches.map(m => m.id === matchId ? { ...m, result } : m)
+  }
+
   function handleSEResult(matchId, result) {
-    const updated = tournament.matches.map(m => m.id === matchId ? { ...m, result } : m)
-    save({ ...tournament, matches: SE.advanceWinners(updated) })
+    save({ ...tournament, matches: SE.advanceWinners(applyBracketEntry(tournament.matches, matchId, result)) })
   }
 
   // Knockout results in group-knockout: advance winners within the knockout subset only.
   function handleKOResult(matchId, result) {
-    const updated = tournament.matches.map(m => m.id === matchId ? { ...m, result } : m)
+    const updated = applyBracketEntry(tournament.matches, matchId, result)
     const ko = SE.advanceWinners(updated.filter(m => m.phase === 'knockout'))
     save({ ...tournament, matches: [...updated.filter(m => m.phase !== 'knockout'), ...ko] })
   }

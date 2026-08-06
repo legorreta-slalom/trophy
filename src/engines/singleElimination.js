@@ -69,6 +69,21 @@ export function advanceWinners(matches) {
   return updated
 }
 
+// Best-of-N: a game result appends to the match; the match result locks in
+// when one player reaches the required win count.
+export function recordGame(matches, matchId, game, bestOf) {
+  const needed = Math.ceil(bestOf / 2)
+  return matches.map(m => {
+    if (m.id !== matchId) return m
+    const games = [...(m.games ?? []), game]
+    const wins = games.filter(g => g.winnerId === game.winnerId).length
+    return { ...m, games, result: wins >= needed ? { winnerId: game.winnerId } : m.result }
+  })
+}
+
+export const seriesWins = (match, playerId) =>
+  match.games?.filter(g => g.winnerId === playerId).length ?? 0
+
 // Clear a result and every result on its downstream path, then re-propagate.
 // Rounds beyond the first get their slots rebuilt from surviving results.
 export function clearResult(matches, matchId) {
@@ -85,6 +100,7 @@ export function clearResult(matches, matchId) {
   const updated = matches.map(m => ({
     ...m,
     result: onPath.has(m.id) ? null : m.result,
+    games: onPath.has(m.id) ? undefined : m.games,
     ...(m.round > 1 ? { player1Id: null, player2Id: null } : {}),
   }))
   return advanceWinners(updated)

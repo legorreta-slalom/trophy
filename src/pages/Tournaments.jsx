@@ -29,7 +29,10 @@ const EMPTY_FORM = {
   startDate: '', endDate: '', image: null,
   points: { win: 3, draw: 1, loss: 0 },
   positionPreset: 'linear', customTable: '',
+  bestOf: 1,
 }
+
+const BRACKET_FORMATS = ['single-elimination', 'group-knockout', 'season-playoffs', 'conference-finals']
 
 function presetFromTable(table) {
   if (!table) return 'linear'
@@ -102,6 +105,7 @@ export default function Tournaments() {
       points: t.points ?? { win: 3, draw: 1, loss: 0 },
       positionPreset: presetFromTable(t.positionPoints),
       customTable: t.positionPoints?.join(', ') ?? '',
+      bestOf: t.bestOf ?? 1,
     })
   }
 
@@ -134,6 +138,7 @@ export default function Tournaments() {
       endDate: form.endDate,
       image: form.image,
       points: form.points,
+      bestOf: BRACKET_FORMATS.includes(form.format) ? form.bestOf : 1,
       positionPoints: form.format !== 'racing' ? null
         : form.positionPreset === 'custom'
           ? form.customTable.split(',').map(s => Number(s.trim())).filter(n => !Number.isNaN(n))
@@ -278,6 +283,21 @@ export default function Tournaments() {
                         />
                       ))}
                     </div>
+                  </Field>
+                </div>
+              )}
+              {BRACKET_FORMATS.includes(form.format) && (
+                <div className={styles.formField}>
+                  <Field label="Bracket matches" hint="Best-of-N: winners need a majority of games.">
+                    <Dropdown
+                      value={form.bestOf === 1 ? 'Single game' : `Best of ${form.bestOf}`}
+                      selectedOptions={[String(form.bestOf)]}
+                      onOptionSelect={(_, { optionValue }) => set('bestOf', Number(optionValue))}
+                    >
+                      <Option value="1">Single game</Option>
+                      <Option value="3">Best of 3</Option>
+                      <Option value="5">Best of 5</Option>
+                    </Dropdown>
                   </Field>
                 </div>
               )}

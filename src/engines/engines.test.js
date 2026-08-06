@@ -158,6 +158,31 @@ describe('conference + finals', () => {
   })
 })
 
+describe('best-of-N series', () => {
+  it('resolves the match at the majority, not before', () => {
+    let matches = SE.generate(players(2))
+    const id = matches[0].id
+    matches = SE.recordGame(matches, id, { winnerId: 'p1' }, 3)
+    expect(matches[0].result).toBeNull()
+    matches = SE.recordGame(matches, id, { winnerId: 'p2' }, 3)
+    expect(matches[0].result).toBeNull()
+    matches = SE.recordGame(matches, id, { winnerId: 'p1' }, 3)
+    expect(matches[0].result).toEqual({ winnerId: 'p1' })
+    expect(SE.seriesWins(matches[0], 'p1')).toBe(2)
+    expect(SE.seriesWins(matches[0], 'p2')).toBe(1)
+  })
+
+  it('clearResult strips games along the path', () => {
+    let matches = SE.generate(players(2))
+    const id = matches[0].id
+    matches = SE.recordGame(matches, id, { winnerId: 'p1' }, 3)
+    matches = SE.recordGame(matches, id, { winnerId: 'p1' }, 3)
+    matches = SE.clearResult(matches, id)
+    expect(matches[0].result).toBeNull()
+    expect(matches[0].games).toBeUndefined()
+  })
+})
+
 describe('custom points', () => {
   it('applies a 2-1-0 scheme', () => {
     const p = players(2)
