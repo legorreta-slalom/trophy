@@ -1,0 +1,561 @@
+{
+  "players": [
+    {
+      "id": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3",
+      "name": "lego"
+    },
+    {
+      "id": "8d581223-2ddc-4e9a-881c-82ad40b1b18b",
+      "name": "Juan perez"
+    },
+    {
+      "id": "5baf8727-ad73-4678-9cd8-7180e107c9b5",
+      "name": "uno mas"
+    },
+    {
+      "id": "0db5236a-d9d5-4069-b110-cdd9d7bb92e5",
+      "name": "y otro"
+    },
+    {
+      "id": "ace19d11-4a4d-4a36-8d0e-8dbf4fff6e08",
+      "name": "ah caray"
+    },
+    {
+      "id": "ad42325d-f95b-46a0-a8c5-e66c51aefee9",
+      "name": "baia baia"
+    },
+    {
+      "id": "ff06c9cc-28ef-4b35-83e4-0bd0de0520fc",
+      "name": "yass queen"
+    },
+    {
+      "id": "74e5c4b3-f99f-49b2-9a38-6dbbe8617704",
+      "name": "probanding"
+    },
+    {
+      "id": "82df6b67-9534-45ab-af4d-7177f11882f1",
+      "name": "una prueba mas"
+    }
+  ],
+  "matches": [
+    {
+      "id": "67c22c5b-e0be-477b-84fe-2d2233aaa565",
+      "round": 1,
+      "player1Id": "8d581223-2ddc-4e9a-881c-82ad40b1b18b",
+      "player2Id": "82df6b67-9534-45ab-af4d-7177f11882f1",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "e65f8262-5033-4ab0-a4cb-1fcd68dee9b4",
+      "round": 1,
+      "player1Id": "5baf8727-ad73-4678-9cd8-7180e107c9b5",
+      "player2Id": "74e5c4b3-f99f-49b2-9a38-6dbbe8617704",
+      "result": {
+        "winner": "player2"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "8fab7531-eb60-47b4-b630-869bca1b1741",
+      "round": 1,
+      "player1Id": "0db5236a-d9d5-4069-b110-cdd9d7bb92e5",
+      "player2Id": "ff06c9cc-28ef-4b35-83e4-0bd0de0520fc",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "6e04dc53-7cbe-47b8-99d4-d93c313c5a10",
+      "round": 1,
+      "player1Id": "ace19d11-4a4d-4a36-8d0e-8dbf4fff6e08",
+      "player2Id": "ad42325d-f95b-46a0-a8c5-e66c51aefee9",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "f159eb0d-223b-4803-956e-63ef12cff19e",
+      "round": 2,
+      "player1Id": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3",
+      "player2Id": "82df6b67-9534-45ab-af4d-7177f11882f1",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "77621c74-97c1-4290-9cf2-93b08a0a2edc",
+      "round": 2,
+      "player1Id": "8d581223-2ddc-4e9a-881c-82ad40b1b18b",
+      "player2Id": "ff06c9cc-28ef-4b35-83e4-0bd0de0520fc",
+      "result": {
+        "winner": "draw"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "3aec8aad-8d2b-41cd-9b65-7067184db3fe",
+      "round": 2,
+      "player1Id": "5baf8727-ad73-4678-9cd8-7180e107c9b5",
+      "player2Id": "ad42325d-f95b-46a0-a8c5-e66c51aefee9",
+      "result": {
+        "winner": "player2"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "63edc82a-32be-4b19-bcfa-d79301756337",
+      "round": 2,
+      "player1Id": "0db5236a-d9d5-4069-b110-cdd9d7bb92e5",
+      "player2Id": "ace19d11-4a4d-4a36-8d0e-8dbf4fff6e08",
+      "result": {
+        "winner": "player2"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "a5d31adf-9b6b-4697-8772-d47b4623ed96",
+      "round": 3,
+      "player1Id": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3",
+      "player2Id": "74e5c4b3-f99f-49b2-9a38-6dbbe8617704",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "10fec8e3-129c-4670-be1e-5b3b0321eaf6",
+      "round": 3,
+      "player1Id": "82df6b67-9534-45ab-af4d-7177f11882f1",
+      "player2Id": "ff06c9cc-28ef-4b35-83e4-0bd0de0520fc",
+      "result": {
+        "winner": "draw"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "f14d9781-33c0-4ca9-8271-1db38ab21875",
+      "round": 3,
+      "player1Id": "8d581223-2ddc-4e9a-881c-82ad40b1b18b",
+      "player2Id": "ace19d11-4a4d-4a36-8d0e-8dbf4fff6e08",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "3a62ce4a-9bdc-4bde-9c4d-7b276565178f",
+      "round": 3,
+      "player1Id": "5baf8727-ad73-4678-9cd8-7180e107c9b5",
+      "player2Id": "0db5236a-d9d5-4069-b110-cdd9d7bb92e5",
+      "result": {
+        "winner": "player2"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "29e5f594-aad8-4d60-bd52-41d10a688da3",
+      "round": 4,
+      "player1Id": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3",
+      "player2Id": "ff06c9cc-28ef-4b35-83e4-0bd0de0520fc",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "433ed8f0-6881-42a6-9b8f-303e0220b5e3",
+      "round": 4,
+      "player1Id": "74e5c4b3-f99f-49b2-9a38-6dbbe8617704",
+      "player2Id": "ad42325d-f95b-46a0-a8c5-e66c51aefee9",
+      "result": {
+        "winner": "draw"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "504204c1-58ba-47b4-a816-2adf50875a55",
+      "round": 4,
+      "player1Id": "82df6b67-9534-45ab-af4d-7177f11882f1",
+      "player2Id": "ace19d11-4a4d-4a36-8d0e-8dbf4fff6e08",
+      "result": {
+        "winner": "draw"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "c70a32b0-9a08-40c2-82db-bc40e51c1e36",
+      "round": 4,
+      "player1Id": "8d581223-2ddc-4e9a-881c-82ad40b1b18b",
+      "player2Id": "5baf8727-ad73-4678-9cd8-7180e107c9b5",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "1f1d6ad2-0398-472e-994c-5a7bc7f81ac3",
+      "round": 5,
+      "player1Id": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3",
+      "player2Id": "ad42325d-f95b-46a0-a8c5-e66c51aefee9",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "53f389c3-ad94-4a58-8d1b-42a256789a77",
+      "round": 5,
+      "player1Id": "ff06c9cc-28ef-4b35-83e4-0bd0de0520fc",
+      "player2Id": "ace19d11-4a4d-4a36-8d0e-8dbf4fff6e08",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "965e230b-9935-4459-95c7-179dcc17e101",
+      "round": 5,
+      "player1Id": "74e5c4b3-f99f-49b2-9a38-6dbbe8617704",
+      "player2Id": "0db5236a-d9d5-4069-b110-cdd9d7bb92e5",
+      "result": {
+        "winner": "player2"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "1ed89a0b-49da-44b4-b624-9ffc0a40aa21",
+      "round": 5,
+      "player1Id": "82df6b67-9534-45ab-af4d-7177f11882f1",
+      "player2Id": "5baf8727-ad73-4678-9cd8-7180e107c9b5",
+      "result": {
+        "winner": "player2"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "cd3de443-768c-4f4d-8d5f-855128e463b4",
+      "round": 6,
+      "player1Id": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3",
+      "player2Id": "ace19d11-4a4d-4a36-8d0e-8dbf4fff6e08",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "418a6d85-3320-451a-b2d2-397be4ad12d9",
+      "round": 6,
+      "player1Id": "ad42325d-f95b-46a0-a8c5-e66c51aefee9",
+      "player2Id": "0db5236a-d9d5-4069-b110-cdd9d7bb92e5",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "4966e452-0667-4406-8598-3d06634f1f7b",
+      "round": 6,
+      "player1Id": "ff06c9cc-28ef-4b35-83e4-0bd0de0520fc",
+      "player2Id": "5baf8727-ad73-4678-9cd8-7180e107c9b5",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "25872db8-7e42-4db3-abb4-a69fda03e1d1",
+      "round": 6,
+      "player1Id": "74e5c4b3-f99f-49b2-9a38-6dbbe8617704",
+      "player2Id": "8d581223-2ddc-4e9a-881c-82ad40b1b18b",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "065778db-e7ad-4778-9fd8-1e5e40bb0c1f",
+      "round": 7,
+      "player1Id": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3",
+      "player2Id": "0db5236a-d9d5-4069-b110-cdd9d7bb92e5",
+      "result": {
+        "winner": "draw"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "99fe796a-0965-4017-a409-269cd2b3265c",
+      "round": 7,
+      "player1Id": "ace19d11-4a4d-4a36-8d0e-8dbf4fff6e08",
+      "player2Id": "5baf8727-ad73-4678-9cd8-7180e107c9b5",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "463dce05-19ec-407e-bea6-b98d67957452",
+      "round": 7,
+      "player1Id": "ad42325d-f95b-46a0-a8c5-e66c51aefee9",
+      "player2Id": "8d581223-2ddc-4e9a-881c-82ad40b1b18b",
+      "result": {
+        "winner": "player2"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "9d0df3b7-28d2-4d47-95c8-63a1d9228c95",
+      "round": 7,
+      "player1Id": "74e5c4b3-f99f-49b2-9a38-6dbbe8617704",
+      "player2Id": "82df6b67-9534-45ab-af4d-7177f11882f1",
+      "result": {
+        "winner": "player2"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "ccd0e463-cff1-4f5b-96bd-855d4e11d8d6",
+      "round": 8,
+      "player1Id": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3",
+      "player2Id": "5baf8727-ad73-4678-9cd8-7180e107c9b5",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "fadb813a-3bac-4a82-b717-5d5c6fd4f9ef",
+      "round": 8,
+      "player1Id": "0db5236a-d9d5-4069-b110-cdd9d7bb92e5",
+      "player2Id": "8d581223-2ddc-4e9a-881c-82ad40b1b18b",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "61add615-4516-4e1a-954f-c584fe7293a6",
+      "round": 8,
+      "player1Id": "ad42325d-f95b-46a0-a8c5-e66c51aefee9",
+      "player2Id": "82df6b67-9534-45ab-af4d-7177f11882f1",
+      "result": {
+        "winner": "player2"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "5ea1b979-8258-44f7-a649-ba3a33797c5e",
+      "round": 8,
+      "player1Id": "ff06c9cc-28ef-4b35-83e4-0bd0de0520fc",
+      "player2Id": "74e5c4b3-f99f-49b2-9a38-6dbbe8617704",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "357fe654-5752-4a65-829c-31ef5dfd9d97",
+      "round": 9,
+      "player1Id": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3",
+      "player2Id": "8d581223-2ddc-4e9a-881c-82ad40b1b18b",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "9146859a-7646-45a6-acce-83c9ce9c6cc6",
+      "round": 9,
+      "player1Id": "0db5236a-d9d5-4069-b110-cdd9d7bb92e5",
+      "player2Id": "82df6b67-9534-45ab-af4d-7177f11882f1",
+      "result": {
+        "winner": "player2"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "271f1117-a943-4f34-a260-8941c1e21472",
+      "round": 9,
+      "player1Id": "ace19d11-4a4d-4a36-8d0e-8dbf4fff6e08",
+      "player2Id": "74e5c4b3-f99f-49b2-9a38-6dbbe8617704",
+      "result": {
+        "winner": "player1"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "fe355ec0-c6f8-46b6-8c1d-20448aacd1fa",
+      "round": 9,
+      "player1Id": "ad42325d-f95b-46a0-a8c5-e66c51aefee9",
+      "player2Id": "ff06c9cc-28ef-4b35-83e4-0bd0de0520fc",
+      "result": {
+        "winner": "player2"
+      },
+      "phase": "season"
+    },
+    {
+      "id": "737b3259-9bdb-49d5-9cc0-2c8ad54aa084",
+      "round": 1,
+      "position": 0,
+      "player1Id": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3",
+      "player2Id": "74e5c4b3-f99f-49b2-9a38-6dbbe8617704",
+      "result": {
+        "winnerId": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3"
+      },
+      "phase": "knockout",
+      "games": [
+        {
+          "winnerId": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3"
+        },
+        {
+          "winnerId": "74e5c4b3-f99f-49b2-9a38-6dbbe8617704"
+        },
+        {
+          "winnerId": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3"
+        }
+      ]
+    },
+    {
+      "id": "b2e95f59-0aaa-4825-8f89-52c4091bcf6c",
+      "round": 1,
+      "position": 1,
+      "player1Id": "8d581223-2ddc-4e9a-881c-82ad40b1b18b",
+      "player2Id": "0db5236a-d9d5-4069-b110-cdd9d7bb92e5",
+      "result": {
+        "winnerId": "0db5236a-d9d5-4069-b110-cdd9d7bb92e5"
+      },
+      "phase": "knockout",
+      "games": [
+        {
+          "winnerId": "0db5236a-d9d5-4069-b110-cdd9d7bb92e5"
+        },
+        {
+          "winnerId": "8d581223-2ddc-4e9a-881c-82ad40b1b18b"
+        },
+        {
+          "winnerId": "0db5236a-d9d5-4069-b110-cdd9d7bb92e5"
+        }
+      ]
+    },
+    {
+      "id": "78e2a154-39ae-480e-a982-09d991582d3a",
+      "round": 1,
+      "position": 2,
+      "player1Id": "ff06c9cc-28ef-4b35-83e4-0bd0de0520fc",
+      "player2Id": "ad42325d-f95b-46a0-a8c5-e66c51aefee9",
+      "result": {
+        "winnerId": "ad42325d-f95b-46a0-a8c5-e66c51aefee9"
+      },
+      "phase": "knockout",
+      "games": [
+        {
+          "winnerId": "ad42325d-f95b-46a0-a8c5-e66c51aefee9"
+        },
+        {
+          "winnerId": "ad42325d-f95b-46a0-a8c5-e66c51aefee9"
+        }
+      ]
+    },
+    {
+      "id": "643c3736-d0a2-44cb-8bb2-d6e2c9726a3c",
+      "round": 1,
+      "position": 3,
+      "player1Id": "ace19d11-4a4d-4a36-8d0e-8dbf4fff6e08",
+      "player2Id": "82df6b67-9534-45ab-af4d-7177f11882f1",
+      "result": {
+        "winnerId": "82df6b67-9534-45ab-af4d-7177f11882f1"
+      },
+      "phase": "knockout",
+      "games": [
+        {
+          "winnerId": "82df6b67-9534-45ab-af4d-7177f11882f1"
+        },
+        {
+          "winnerId": "82df6b67-9534-45ab-af4d-7177f11882f1"
+        }
+      ]
+    },
+    {
+      "id": "09bb0ab9-34d4-48cc-98e3-2bc3be839ab9",
+      "round": 2,
+      "position": 0,
+      "player1Id": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3",
+      "player2Id": "0db5236a-d9d5-4069-b110-cdd9d7bb92e5",
+      "result": {
+        "winnerId": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3"
+      },
+      "phase": "knockout",
+      "games": [
+        {
+          "winnerId": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3"
+        },
+        {
+          "winnerId": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3"
+        }
+      ]
+    },
+    {
+      "id": "1a02a4e8-d26c-4bcf-bad0-1ba5ce7d767d",
+      "round": 2,
+      "position": 1,
+      "player1Id": "ad42325d-f95b-46a0-a8c5-e66c51aefee9",
+      "player2Id": "82df6b67-9534-45ab-af4d-7177f11882f1",
+      "result": {
+        "winnerId": "82df6b67-9534-45ab-af4d-7177f11882f1"
+      },
+      "phase": "knockout",
+      "games": [
+        {
+          "winnerId": "82df6b67-9534-45ab-af4d-7177f11882f1"
+        },
+        {
+          "winnerId": "ad42325d-f95b-46a0-a8c5-e66c51aefee9"
+        },
+        {
+          "winnerId": "82df6b67-9534-45ab-af4d-7177f11882f1"
+        }
+      ]
+    },
+    {
+      "id": "55d4a6cf-f5d4-4788-917b-fac52c7f85d8",
+      "round": 3,
+      "position": 0,
+      "player1Id": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3",
+      "player2Id": "82df6b67-9534-45ab-af4d-7177f11882f1",
+      "result": {
+        "winnerId": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3"
+      },
+      "phase": "knockout",
+      "games": [
+        {
+          "winnerId": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3"
+        },
+        {
+          "winnerId": "48bc8297-5f48-40d3-94b9-c8ef6a600fa3"
+        }
+      ]
+    }
+  ],
+  "id": "44528ea8-c2c7-4ede-962e-efcd6ee1a1be",
+  "name": "LE fichapul",
+  "gameId": "036c97bb-5707-405c-8698-1d0616fde67e",
+  "format": "season-playoffs",
+  "startDate": "2026-08-07",
+  "endDate": "2026-08-16",
+  "image": null,
+  "points": {
+    "win": 3,
+    "draw": 1,
+    "loss": 0
+  },
+  "teams": false,
+  "streamUrl": null,
+  "bestOf": 3,
+  "positionPoints": null,
+  "status": "completed"
+}
