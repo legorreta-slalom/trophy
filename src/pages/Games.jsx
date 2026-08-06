@@ -2,12 +2,13 @@ import { useState } from 'react'
 import {
   makeStyles,
   Title2, Body1,
-  Button, Input, Field,
+  Button, Input, Field, Avatar,
   Dialog, DialogSurface, DialogTitle, DialogBody, DialogActions, DialogContent, DialogTrigger,
   Table, TableHeader, TableRow, TableHeaderCell, TableBody, TableCell, TableCellActions,
 } from '@fluentui/react-components'
 import { AddRegular, DeleteRegular, EditRegular } from '@fluentui/react-icons'
 import { getGames, saveGame, deleteGame, getTournaments } from '../store.js'
+import ImagePicker from '../components/ImagePicker.jsx'
 
 const useStyles = makeStyles({
   header: {
@@ -23,15 +24,20 @@ export default function Games() {
   const [games, setGames] = useState(getGames)
   const [editing, setEditing] = useState(null) // null = closed, {} = new, game = editing
   const [name, setName] = useState('')
+  const [image, setImage] = useState(null)
   const [pendingDelete, setPendingDelete] = useState(null)
 
   function refresh() { setGames(getGames()) }
 
-  function openNew() { setEditing({}); setName('') }
-  function openEdit(g) { setEditing(g); setName(g.name) }
+  function openNew() { setEditing({}); setName(''); setImage(null) }
+  function openEdit(g) { setEditing(g); setName(g.name); setImage(g.image ?? null) }
 
   function save() {
-    saveGame(editing.id ? { ...editing, name: name.trim() } : { id: crypto.randomUUID(), name: name.trim() })
+    saveGame({
+      ...(editing.id ? editing : { id: crypto.randomUUID() }),
+      name: name.trim(),
+      image,
+    })
     refresh()
     setEditing(null)
   }
@@ -64,7 +70,12 @@ export default function Games() {
           <TableBody>
             {games.map(g => (
               <TableRow key={g.id}>
-                <TableCell>{g.name}</TableCell>
+                <TableCell>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Avatar name={g.name} color="colorful" shape="square" size={28} image={g.image ? { src: g.image } : undefined} />
+                    {g.name}
+                  </span>
+                </TableCell>
                 <TableCellActions>
                   <Button appearance="subtle" icon={<EditRegular />} aria-label="Edit" onClick={() => openEdit(g)} />
                   <Button appearance="subtle" icon={<DeleteRegular />} aria-label="Delete" onClick={() => setPendingDelete(g)} />
@@ -87,6 +98,9 @@ export default function Games() {
                   onChange={(_, { value }) => setName(value)}
                   onKeyDown={e => e.key === 'Enter' && name.trim() && save()}
                 />
+              </Field>
+              <Field label="Icon" style={{ marginTop: '12px' }}>
+                <ImagePicker name={name} value={image} onChange={setImage} square />
               </Field>
             </DialogContent>
             <DialogActions>

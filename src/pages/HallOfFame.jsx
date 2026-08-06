@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   makeStyles,
   Title2, Body1, Body1Strong, Caption1,
-  Dropdown, Option, Field,
+  Dropdown, Option, Field, Avatar,
   Table, TableHeader, TableRow, TableHeaderCell, TableBody, TableCell,
 } from '@fluentui/react-components'
 import { getTournaments, getGames } from '../store.js'
@@ -28,9 +28,10 @@ function aggregate(tournaments) {
     const champion = getChampion(t)
     for (const p of t.players ?? []) {
       const key = p.name.trim().toLowerCase()
-      if (!stats.has(key)) stats.set(key, { name: p.name.trim(), played: 0, titles: 0 })
+      if (!stats.has(key)) stats.set(key, { name: p.name.trim(), played: 0, titles: 0, image: null })
       const s = stats.get(key)
       s.played++
+      s.image ??= p.image ?? null
       if (champion && champion.id === p.id) s.titles++
     }
   }
@@ -83,7 +84,12 @@ export default function HallOfFame() {
             {rows.map((r, i) => (
               <TableRow key={r.name}>
                 <TableCell>{i + 1}</TableCell>
-                <TableCell><Body1Strong>{r.name}</Body1Strong></TableCell>
+                <TableCell>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Avatar name={r.name} color="colorful" size={32} image={r.image ? { src: r.image } : undefined} />
+                    <Body1Strong>{r.name}</Body1Strong>
+                  </span>
+                </TableCell>
                 <TableCell>
                   {r.titles > 0
                     ? <Body1Strong>{'🏆'.repeat(Math.min(r.titles, 5))}{r.titles > 5 ? ` ×${r.titles}` : ''}</Body1Strong>

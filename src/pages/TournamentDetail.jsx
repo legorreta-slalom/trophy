@@ -10,6 +10,7 @@ import {
   Table, TableHeader, TableRow, TableHeaderCell, TableBody, TableCell, TableCellActions,
   Dialog, DialogSurface, DialogTitle, DialogBody, DialogActions, DialogContent, DialogTrigger,
   Popover, PopoverTrigger, PopoverSurface,
+  Avatar,
 } from '@fluentui/react-components'
 import { AddRegular, DeleteRegular, ChevronLeftRegular, DismissRegular, QrCodeRegular, ArrowUpRegular, ArrowDownRegular } from '@fluentui/react-icons'
 import { useEffect } from 'react'
@@ -17,6 +18,17 @@ import QRCode from 'qrcode'
 import { getTournaments, saveTournament, getGames } from '../store.js'
 import { getAccess, getPublishSettings } from '../publish.js'
 import UnlockDialog from '../components/UnlockDialog.jsx'
+import ImagePicker from '../components/ImagePicker.jsx'
+
+// Consistent name-with-avatar rendering across match lists, standings, brackets.
+function PlayerLabel({ player, size = 20, className, fallback = '?' }) {
+  return (
+    <span className={className} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+      {player && <Avatar name={player.name} color="colorful" size={size} image={player.image ? { src: player.image } : undefined} />}
+      {player?.name ?? fallback}
+    </span>
+  )
+}
 import { FORMATS, STATUS_APPEARANCE } from '../constants.js'
 import * as RR from '../engines/roundRobin.js'
 import * as SE from '../engines/singleElimination.js'
@@ -182,9 +194,11 @@ function RoundRobinView({ matches, playerById, onResult, onClear }) {
             return (
               <div key={m.id} className={styles.matchRow}>
                 <div className={styles.matchPlayers}>
-                  <Body1 className={m.result?.winner === 'player1' ? styles.resultWinner : ''}>{p1?.name ?? '?'}</Body1>
+                  <Body1 className={m.result?.winner === 'player1' ? styles.resultWinner : ''}><PlayerLabel player={p1} /></Body1>
                   <Caption1 className={styles.matchVs}>vs</Caption1>
-                  <Body1 className={m.result?.winner === 'player2' ? styles.resultWinner : ''}>{m.player2Id === null ? 'Bye' : p2?.name ?? '?'}</Body1>
+                  <Body1 className={m.result?.winner === 'player2' ? styles.resultWinner : ''}>
+                    {m.player2Id === null ? 'Bye' : <PlayerLabel player={p2} />}
+                  </Body1>
                 </div>
                 {m.result ? (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -241,7 +255,7 @@ function StandingsView({ players, matches }) {
           {rows.map((p, i) => (
             <TableRow key={p.id}>
               <TableCell>{i + 1}</TableCell>
-              <TableCell className={styles.colName}><Body1Strong>{p.name}</Body1Strong></TableCell>
+              <TableCell className={styles.colName}><Body1Strong><PlayerLabel player={p} size={24} /></Body1Strong></TableCell>
               <TableCell className={styles.colStat}>{p.played}</TableCell>
               <TableCell className={styles.colStat}>{p.w}</TableCell>
               <TableCell className={styles.colStat}>{p.d}</TableCell>
@@ -311,9 +325,9 @@ function LeaderboardView({ tournament, playerById, onRecord, onDelete }) {
           return (
             <div key={m.id} className={styles.matchRow}>
               <div className={styles.matchPlayers}>
-                <Body1 className={m.result?.winner === 'player1' ? styles.resultWinner : ''}>{p1?.name ?? '?'}</Body1>
+                <Body1 className={m.result?.winner === 'player1' ? styles.resultWinner : ''}><PlayerLabel player={p1} /></Body1>
                 <Caption1 className={styles.matchVs}>vs</Caption1>
-                <Body1 className={m.result?.winner === 'player2' ? styles.resultWinner : ''}>{p2?.name ?? '?'}</Body1>
+                <Body1 className={m.result?.winner === 'player2' ? styles.resultWinner : ''}><PlayerLabel player={p2} /></Body1>
               </div>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <Caption1>{m.result.winner === 'draw' ? 'Draw' : m.result.winner === 'player1' ? `${p1?.name} wins` : `${p2?.name} wins`}</Caption1>
@@ -394,7 +408,7 @@ function BracketView({ matches, playerById, onResult, onClear }) {
                             key={side}
                             className={`${styles.bracketPlayer} ${isWinner ? styles.bracketPlayerWinner : ''} ${isElim ? styles.bracketPlayerElim : ''}`}
                           >
-                            <Body1>{p?.name ?? 'TBD'}</Body1>
+                            <Body1><PlayerLabel player={p} size={24} fallback="TBD" /></Body1>
                             <span style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                               {m.result?.score && <Caption1>{m.result.score[side]}</Caption1>}
                               {isWinner && <Caption1>🏆</Caption1>}
@@ -546,6 +560,10 @@ export default function TournamentDetail() {
     save({ ...tournament, status: 'active' })
   }
 
+  function setPlayerImage(playerId, image) {
+    save({ ...tournament, players: tournament.players.map(p => p.id === playerId ? { ...p, image } : p) })
+  }
+
   function movePlayer(index, delta) {
     const players = [...tournament.players]
     const target = index + delta
@@ -631,6 +649,13 @@ export default function TournamentDetail() {
           icon={<ChevronLeftRegular />}
           onClick={() => navigate('/')}
         />
+        <Avatar
+          name={tournament.name}
+          color="colorful"
+          shape="square"
+          size={56}
+          image={tournament.image ? { src: tournament.image } : undefined}
+        />
         <div className={styles.headerText}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Title2>{tournament.name}</Title2>
@@ -698,20 +723,23 @@ export default function TournamentDetail() {
                 <TableHeader>
                   <TableRow>
                     <TableHeaderCell>Name</TableHeaderCell>
-                    {tournament.status === 'upcoming' && <TableHeaderCell />}
+                    <TableHeaderCell />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {tournament.players.map((p, i) => (
                     <TableRow key={p.id}>
-                      <TableCell>{p.name}</TableCell>
-                      {tournament.status === 'upcoming' && (
-                        <TableCellActions>
-                          <Button appearance="subtle" icon={<ArrowUpRegular />} aria-label="Move up" disabled={i === 0} onClick={() => movePlayer(i, -1)} />
-                          <Button appearance="subtle" icon={<ArrowDownRegular />} aria-label="Move down" disabled={i === tournament.players.length - 1} onClick={() => movePlayer(i, 1)} />
-                          <Button appearance="subtle" icon={<DeleteRegular />} aria-label="Remove" onClick={() => removePlayer(p.id)} />
-                        </TableCellActions>
-                      )}
+                      <TableCell><PlayerLabel player={p} size={28} /></TableCell>
+                      <TableCellActions>
+                        <ImagePicker compact name={p.name} value={p.image ?? null} onChange={(v) => setPlayerImage(p.id, v)} />
+                        {tournament.status === 'upcoming' && (
+                          <>
+                            <Button appearance="subtle" icon={<ArrowUpRegular />} aria-label="Move up" disabled={i === 0} onClick={() => movePlayer(i, -1)} />
+                            <Button appearance="subtle" icon={<ArrowDownRegular />} aria-label="Move down" disabled={i === tournament.players.length - 1} onClick={() => movePlayer(i, 1)} />
+                            <Button appearance="subtle" icon={<DeleteRegular />} aria-label="Remove" onClick={() => removePlayer(p.id)} />
+                          </>
+                        )}
+                      </TableCellActions>
                     </TableRow>
                   ))}
                 </TableBody>

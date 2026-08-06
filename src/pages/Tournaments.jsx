@@ -8,12 +8,13 @@ import {
   Combobox, Option,
   Dropdown,
   Card, CardHeader,
-  Badge,
+  Badge, Avatar,
 } from '@fluentui/react-components'
 import { AddRegular, DeleteRegular, EditRegular } from '@fluentui/react-icons'
 import { getTournaments, saveTournament, deleteTournament, getGames, saveGame } from '../store.js'
 import { FORMATS, STATUS_APPEARANCE } from '../constants.js'
 import { getChampion } from '../engines/champion.js'
+import ImagePicker from '../components/ImagePicker.jsx'
 
 function computeStatus(startDate, endDate) {
   const today = new Date().toISOString().slice(0, 10)
@@ -22,7 +23,7 @@ function computeStatus(startDate, endDate) {
   return 'active'
 }
 
-const EMPTY_FORM = { name: '', gameId: '', gameInput: '', format: 'round-robin', startDate: '', endDate: '' }
+const EMPTY_FORM = { name: '', gameId: '', gameInput: '', format: 'round-robin', startDate: '', endDate: '', image: null }
 
 const useStyles = makeStyles({
   header: {
@@ -83,7 +84,7 @@ export default function Tournaments() {
     e.stopPropagation()
     const game = games.find(g => g.id === t.gameId)
     setEditing(t)
-    setForm({ name: t.name, gameId: t.gameId, gameInput: game?.name ?? '', format: t.format, startDate: t.startDate, endDate: t.endDate })
+    setForm({ name: t.name, gameId: t.gameId, gameInput: game?.name ?? '', format: t.format, startDate: t.startDate, endDate: t.endDate, image: t.image ?? null })
   }
 
   function set(field, value) { setForm(f => ({ ...f, [field]: value })) }
@@ -113,6 +114,7 @@ export default function Tournaments() {
       format: form.format,
       startDate: form.startDate,
       endDate: form.endDate,
+      image: form.image,
       status,
     })
     refresh()
@@ -137,6 +139,7 @@ export default function Tournaments() {
     return (
       <Card key={t.id} appearance="outline" onClick={() => navigate(`/tournaments/${t.id}`)} style={{ cursor: 'pointer' }}>
         <CardHeader
+          image={<Avatar name={t.name} color="colorful" shape="square" size={40} image={t.image ? { src: t.image } : undefined} />}
           header={<Body1Strong>{t.name}</Body1Strong>}
           action={<Badge appearance="tint" color={STATUS_APPEARANCE[t.status]}>{t.status}</Badge>}
         />
@@ -235,6 +238,11 @@ export default function Tournaments() {
                 </Field>
                 <Field label="End date" required>
                   <Input type="date" value={form.endDate} onChange={(_, { value }) => set('endDate', value)} />
+                </Field>
+              </div>
+              <div className={styles.formField}>
+                <Field label="Cover / logo">
+                  <ImagePicker name={form.name} value={form.image} onChange={(v) => set('image', v)} square maxPx={256} />
                 </Field>
               </div>
             </DialogContent>
