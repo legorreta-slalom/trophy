@@ -17,9 +17,9 @@ export function generateConferences(players) {
 
 // Top 2 per conference. Conference finals stay in-conference (E1 vs E2, W1 vs W2);
 // winners meet in the championship.
-export function generateFinals(players, matches) {
+export function generateFinals(players, matches, points) {
   const seeds = CONFERENCES.flatMap(conf =>
-    RR.computeStandings(groupPlayers(players, matches, conf), groupMatches(matches, conf)).slice(0, 2)
+    RR.computeStandings(groupPlayers(players, matches, conf), groupMatches(matches, conf), points).slice(0, 2)
   )
   const knockout = SE.generate(seeds, { prePaired: true }).map(m => ({ ...m, phase: 'knockout' }))
   return [...matches, ...knockout]

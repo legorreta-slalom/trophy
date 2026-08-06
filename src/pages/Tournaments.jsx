@@ -14,6 +14,7 @@ import { AddRegular, DeleteRegular, EditRegular } from '@fluentui/react-icons'
 import { getTournaments, saveTournament, deleteTournament, getGames, saveGame } from '../store.js'
 import { FORMATS, STATUS_APPEARANCE } from '../constants.js'
 import { getChampion } from '../engines/champion.js'
+import { POSITION_PRESETS } from '../engines/racing.js'
 import ImagePicker from '../components/ImagePicker.jsx'
 
 function computeStatus(startDate, endDate) {
@@ -23,7 +24,18 @@ function computeStatus(startDate, endDate) {
   return 'active'
 }
 
-const EMPTY_FORM = { name: '', gameId: '', gameInput: '', format: 'round-robin', startDate: '', endDate: '', image: null }
+const EMPTY_FORM = {
+  name: '', gameId: '', gameInput: '', format: 'round-robin',
+  startDate: '', endDate: '', image: null,
+  points: { win: 3, draw: 1, loss: 0 },
+  positionPreset: 'linear', customTable: '',
+}
+
+function presetFromTable(table) {
+  if (!table) return 'linear'
+  const match = Object.entries(POSITION_PRESETS).find(([, p]) => JSON.stringify(p.table) === JSON.stringify(table))
+  return match ? match[0] : 'custom'
+}
 
 const useStyles = makeStyles({
   header: {
@@ -84,7 +96,13 @@ export default function Tournaments() {
     e.stopPropagation()
     const game = games.find(g => g.id === t.gameId)
     setEditing(t)
-    setForm({ name: t.name, gameId: t.gameId, gameInput: game?.name ?? '', format: t.format, startDate: t.startDate, endDate: t.endDate, image: t.image ?? null })
+    setForm({
+      name: t.name, gameId: t.gameId, gameInput: game?.name ?? '', format: t.format,
+      startDate: t.startDate, endDate: t.endDate, image: t.image ?? null,
+      points: t.points ?? { win: 3, draw: 1, loss: 0 },
+      positionPreset: presetFromTable(t.positionPoints),
+      customTable: t.positionPoints?.join(', ') ?? '',
+    })
   }
 
   function set(field, value) { setForm(f => ({ ...f, [field]: value })) }
@@ -115,6 +133,11 @@ export default function Tournaments() {
       startDate: form.startDate,
       endDate: form.endDate,
       image: form.image,
+      points: form.points,
+      positionPoints: form.format !== 'racing' ? null
+        : form.positionPreset === 'custom'
+          ? form.customTable.split(',').map(s => Number(s.trim())).filter(n => !Number.isNaN(n))
+          : POSITION_PRESETS[form.positionPreset].table,
       status,
     })
     refresh()
@@ -240,6 +263,43 @@ export default function Tournaments() {
                   <Input type="date" value={form.endDate} onChange={(_, { value }) => set('endDate', value)} />
                 </Field>
               </div>
+              {!['single-elimination', 'racing'].includes(form.format) && (
+                <div className={styles.formField}>
+                  <Field label="Points (win / draw / loss)">
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {['win', 'draw', 'loss'].map(k => (
+                        <Input
+                          key={k}
+                          type="number"
+                          aria-label={`${k} points`}
+                          value={String(form.points[k])}
+                          onChange={(_, { value }) => set('points', { ...form.points, [k]: Number(value) || 0 })}
+                          style={{ width: '72px' }}
+                        />
+                      ))}
+                    </div>
+                  </Field>
+                </div>
+              )}
+              {form.format === 'racing' && (
+                <div className={styles.formField}>
+                  <Field label="Position points">
+                    <Dropdown
+                      value={form.positionPreset === 'custom' ? 'Custom' : POSITION_PRESETS[form.positionPreset].label}
+                      selectedOptions={[form.positionPreset]}
+                      onOptionSelect={(_, { optionValue }) => set('positionPreset', optionValue)}
+                    >
+                      {Object.entries(POSITION_PRESETS).map(([key, p]) => <Option key={key} value={key}>{p.label}</Option>)}
+                      <Option value="custom">Custom</Option>
+                    </Dropdown>
+                  </Field>
+                  {form.positionPreset === 'custom' && (
+                    <Field label="Points for 1st, 2nd, … (comma-separated)" style={{ marginTop: '8px' }}>
+                      <Input value={form.customTable} onChange={(_, { value }) => set('customTable', value)} placeholder="10, 7, 5, 3, 1" />
+                    </Field>
+                  )}
+                </div>
+              )}
               <div className={styles.formField}>
                 <Field label="Cover / logo">
                   <ImagePicker name={form.name} value={form.image} onChange={(v) => set('image', v)} square maxPx={256} />

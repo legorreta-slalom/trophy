@@ -22,7 +22,9 @@ export function generate(players) {
   return matches
 }
 
-export function computeStandings(players, matches) {
+export const DEFAULT_POINTS = { win: 3, draw: 1, loss: 0 }
+
+export function computeStandings(players, matches, points = DEFAULT_POINTS) {
   const stats = Object.fromEntries(
     players.map(p => [p.id, { played: 0, w: 0, d: 0, l: 0, pts: 0 }])
   )
@@ -33,14 +35,14 @@ export function computeStandings(players, matches) {
     if (p1) p1.played++
     if (p2) p2.played++
     if (m.result.winner === 'draw') {
-      if (p1) { p1.d++; p1.pts++ }
-      if (p2) { p2.d++; p2.pts++ }
+      if (p1) { p1.d++; p1.pts += points.draw }
+      if (p2) { p2.d++; p2.pts += points.draw }
     } else if (m.result.winner === 'player1') {
-      if (p1) { p1.w++; p1.pts += 3 }
-      if (p2) p2.l++
+      if (p1) { p1.w++; p1.pts += points.win }
+      if (p2) { p2.l++; p2.pts += points.loss }
     } else {
-      if (p2) { p2.w++; p2.pts += 3 }
-      if (p1) p1.l++
+      if (p2) { p2.w++; p2.pts += points.win }
+      if (p1) { p1.l++; p1.pts += points.loss }
     }
   }
   const rows = players.map(p => ({ ...p, ...stats[p.id] }))
@@ -59,12 +61,12 @@ export function computeStandings(players, matches) {
     for (const m of matches) {
       if (!m.result || !ids.has(m.player1Id) || !ids.has(m.player2Id)) continue
       if (m.result.winner === 'draw') {
-        h2h.set(m.player1Id, h2h.get(m.player1Id) + 1)
-        h2h.set(m.player2Id, h2h.get(m.player2Id) + 1)
+        h2h.set(m.player1Id, h2h.get(m.player1Id) + points.draw)
+        h2h.set(m.player2Id, h2h.get(m.player2Id) + points.draw)
       } else if (m.result.winner === 'player1') {
-        h2h.set(m.player1Id, h2h.get(m.player1Id) + 3)
+        h2h.set(m.player1Id, h2h.get(m.player1Id) + points.win)
       } else {
-        h2h.set(m.player2Id, h2h.get(m.player2Id) + 3)
+        h2h.set(m.player2Id, h2h.get(m.player2Id) + points.win)
       }
     }
   }

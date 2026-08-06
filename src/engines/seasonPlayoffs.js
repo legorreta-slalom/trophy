@@ -20,8 +20,8 @@ export function playoffSize(playerCount) {
   return playerCount >= 8 ? 8 : 4
 }
 
-export function generatePlayoffs(players, matches) {
-  const standings = RR.computeStandings(players, seasonMatches(matches))
+export function generatePlayoffs(players, matches, points) {
+  const standings = RR.computeStandings(players, seasonMatches(matches), points)
   const qualified = standings.slice(0, playoffSize(players.length))
   const knockout = SE.generate(qualified).map(m => ({ ...m, phase: 'knockout' }))
   return [...matches, ...knockout]

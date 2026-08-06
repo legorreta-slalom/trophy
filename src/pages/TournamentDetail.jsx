@@ -36,6 +36,7 @@ import * as SW from '../engines/swiss.js'
 import * as GK from '../engines/groupKnockout.js'
 import * as SP from '../engines/seasonPlayoffs.js'
 import * as CF from '../engines/conferenceFinals.js'
+import * as Racing from '../engines/racing.js'
 
 const useStyles = makeStyles({
   header: {
@@ -234,9 +235,9 @@ function RoundRobinView({ matches, playerById, onResult, onClear }) {
   )
 }
 
-function StandingsView({ players, matches }) {
+function StandingsView({ players, matches, points }) {
   const styles = useStyles()
-  const rows = RR.computeStandings(players, matches)
+  const rows = RR.computeStandings(players, matches, points)
   return (
     <div className={styles.standingsTable}>
       <Table>
@@ -369,6 +370,99 @@ function LeaderboardView({ tournament, playerById, onRecord, onDelete }) {
   )
 }
 
+const MEDALS = ['🥇', '🥈', '🥉']
+const placeLabel = (i) => MEDALS[i] ?? `${i + 1}.`
+
+function RaceView({ tournament, playerById, onRecord, onDelete }) {
+  const styles = useStyles()
+  const [order, setOrder] = useState([])
+  const remaining = tournament.players.filter(p => !order.includes(p.id))
+  const heats = [...tournament.matches].reverse()
+
+  return (
+    <>
+      {tournament.status === 'active' && (
+        <div className={styles.roundSection}>
+          <Body1Strong style={{ display: 'block', marginBottom: '8px' }}>
+            Record a heat — tap racers in finishing order
+          </Body1Strong>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
+            {remaining.map(p => (
+              <Button key={p.id} size="small" onClick={() => setOrder([...order, p.id])}>
+                {p.name}
+              </Button>
+            ))}
+          </div>
+          {order.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <Body1>
+                {order.map((id, i) => `${placeLabel(i)} ${playerById[id]?.name}`).join('  ')}
+              </Body1>
+              <Button size="small" appearance="subtle" onClick={() => setOrder(order.slice(0, -1))}>Undo</Button>
+              <Button size="small" appearance="subtle" onClick={() => setOrder([])}>Reset</Button>
+              <Button
+                size="small"
+                appearance="primary"
+                disabled={order.length < 2}
+                onClick={() => { onRecord(order); setOrder([]) }}
+              >
+                Record heat ({order.length} racers)
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {heats.length === 0 ? (
+        <Body1>No heats recorded yet.</Body1>
+      ) : (
+        heats.map(m => (
+          <div key={m.id} className={styles.matchRow}>
+            <div className={styles.matchPlayers}>
+              <Body1Strong style={{ marginRight: '8px' }}>Heat {m.heat}</Body1Strong>
+              <Body1>{m.order.map((id, i) => `${placeLabel(i)} ${playerById[id]?.name ?? '?'}`).join('  ')}</Body1>
+            </div>
+            {onDelete && (
+              <Button appearance="subtle" size="small" icon={<DismissRegular />} aria-label="Delete heat" onClick={() => onDelete(m.id)} />
+            )}
+          </div>
+        ))
+      )}
+    </>
+  )
+}
+
+function RaceStandingsView({ tournament }) {
+  const styles = useStyles()
+  const rows = Racing.computeStandings(tournament.players, tournament.matches, tournament.positionPoints ?? null)
+  return (
+    <div className={styles.standingsTable}>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHeaderCell style={{ width: '32px' }}>#</TableHeaderCell>
+            <TableHeaderCell className={styles.colName}>Racer</TableHeaderCell>
+            <TableHeaderCell className={styles.colStat}>Races</TableHeaderCell>
+            <TableHeaderCell className={styles.colStat}>Wins</TableHeaderCell>
+            <TableHeaderCell className={styles.colStat}>Pts</TableHeaderCell>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((p, i) => (
+            <TableRow key={p.id}>
+              <TableCell>{i + 1}</TableCell>
+              <TableCell className={styles.colName}><Body1Strong><PlayerLabel player={p} size={24} /></Body1Strong></TableCell>
+              <TableCell className={styles.colStat}>{p.races}</TableCell>
+              <TableCell className={styles.colStat}>{p.wins}</TableCell>
+              <TableCell className={styles.colStat}><Body1Strong>{p.pts}</Body1Strong></TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
 function GroupsView({ tournament, playerById, onResult, onClear, groupLabel = (g) => `Group ${g}` }) {
   const styles = useStyles()
   return (
@@ -389,6 +483,7 @@ function GroupsView({ tournament, playerById, onResult, onClear, groupLabel = (g
               <StandingsView
                 players={GK.groupPlayers(tournament.players, tournament.matches, g)}
                 matches={GK.groupMatches(tournament.matches, g)}
+                points={tournament.points}
               />
             </div>
           </div>
@@ -542,11 +637,11 @@ export default function TournamentDetail() {
   }
 
   function start() {
-    const { format, players } = tournament
+    const { format, players, points } = tournament
     const matches =
       format === 'single-elimination' ? SE.generate(players)
-      : format === 'swiss' ? SW.generateNextRound(players, [])
-      : format === 'leaderboard' ? []
+      : format === 'swiss' ? SW.generateNextRound(players, [], points)
+      : format === 'leaderboard' || format === 'racing' ? []
       : format === 'group-knockout' ? GK.generateGroups(players)
       : format === 'season-playoffs' ? SP.generateSeason(players)
       : format === 'conference-finals' ? CF.generateConferences(players)
@@ -560,17 +655,25 @@ export default function TournamentDetail() {
   }
 
   function advanceToKnockout() {
-    const { format, players, matches } = tournament
+    const { format, players, matches, points } = tournament
     const updated =
-      format === 'group-knockout' ? GK.generateKnockout(players, matches)
-      : format === 'season-playoffs' ? SP.generatePlayoffs(players, matches)
-      : CF.generateFinals(players, matches)
+      format === 'group-knockout' ? GK.generateKnockout(players, matches, points)
+      : format === 'season-playoffs' ? SP.generatePlayoffs(players, matches, points)
+      : CF.generateFinals(players, matches, points)
     save({ ...tournament, matches: updated })
     setSelectedTab('bracket')
   }
 
   function generateNextSwissRound() {
-    save({ ...tournament, matches: SW.generateNextRound(tournament.players, tournament.matches) })
+    save({ ...tournament, matches: SW.generateNextRound(tournament.players, tournament.matches, tournament.points) })
+  }
+
+  function handleRecordHeat(order) {
+    save({ ...tournament, matches: Racing.recordHeat(tournament.matches, order) })
+  }
+
+  function handleDeleteHeat(matchId) {
+    save({ ...tournament, matches: tournament.matches.filter(m => m.id !== matchId) })
   }
 
   function handleLeaderboardRecord(player1Id, player2Id, result) {
@@ -642,6 +745,7 @@ export default function TournamentDetail() {
   const isGK = format === 'group-knockout'
   const isSP = format === 'season-playoffs'
   const isCF = format === 'conference-finals'
+  const isRacing = format === 'racing'
   const isGrouped = isGK || isCF
   const hasStandings = !isBracket && !isGrouped
   const minPlayers = isGK ? GK.MIN_PLAYERS : isSP ? SP.MIN_PLAYERS : isCF ? CF.MIN_PLAYERS : 2
@@ -649,6 +753,7 @@ export default function TournamentDetail() {
     isBracket ? SE.isComplete(tournament.matches)
     : isSwiss ? SW.isComplete(tournament.players, tournament.matches)
     : isLeaderboard ? tournament.matches.length > 0
+    : isRacing ? Racing.isComplete(tournament.matches)
     : isGK || isCF ? GK.isComplete(tournament.matches)
     : isSP ? SP.isComplete(tournament.matches)
     : RR.isComplete(tournament.matches)
@@ -717,7 +822,7 @@ export default function TournamentDetail() {
         onTabSelect={(_, { value }) => setSelectedTab(value)}
       >
         <Tab value="players">Players {tournament.players.length > 0 ? `(${tournament.players.length})` : ''}</Tab>
-        {tournament.status !== 'upcoming' && !isBracket && !isGrouped && <Tab value="matches">{isLeaderboard ? 'Results' : isSP ? 'Season' : 'Matches'}</Tab>}
+        {tournament.status !== 'upcoming' && !isBracket && !isGrouped && <Tab value="matches">{isLeaderboard ? 'Results' : isRacing ? 'Races' : isSP ? 'Season' : 'Matches'}</Tab>}
         {tournament.status !== 'upcoming' && hasStandings && <Tab value="standings">Standings</Tab>}
         {tournament.status !== 'upcoming' && isGrouped && <Tab value="groups">{isCF ? 'Conferences' : 'Groups'}</Tab>}
         {tournament.status !== 'upcoming' && (isBracket || knockoutHasStarted) && (
@@ -794,7 +899,16 @@ export default function TournamentDetail() {
           />
         )}
 
-        {selectedTab === 'matches' && !isLeaderboard && (
+        {selectedTab === 'matches' && isRacing && (
+          <RaceView
+            tournament={tournament}
+            playerById={playerById}
+            onRecord={handleRecordHeat}
+            onDelete={tournament.status === 'active' ? handleDeleteHeat : undefined}
+          />
+        )}
+
+        {selectedTab === 'matches' && !isLeaderboard && !isRacing && (
           <>
             <RoundRobinView
               matches={isSP ? SP.seasonMatches(tournament.matches) : tournament.matches}
@@ -811,10 +925,15 @@ export default function TournamentDetail() {
         )}
 
         {selectedTab === 'standings' && (
-          <StandingsView
-            players={tournament.players}
-            matches={isSP ? SP.seasonMatches(tournament.matches) : tournament.matches}
-          />
+          isRacing ? (
+            <RaceStandingsView tournament={tournament} />
+          ) : (
+            <StandingsView
+              players={tournament.players}
+              matches={isSP ? SP.seasonMatches(tournament.matches) : tournament.matches}
+              points={tournament.points}
+            />
+          )
         )}
 
         {selectedTab === 'groups' && (

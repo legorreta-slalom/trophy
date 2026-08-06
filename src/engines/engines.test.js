@@ -5,6 +5,7 @@ import * as SW from './swiss.js'
 import * as GK from './groupKnockout.js'
 import * as SP from './seasonPlayoffs.js'
 import * as CF from './conferenceFinals.js'
+import * as Racing from './racing.js'
 import { getChampion } from './champion.js'
 
 const players = (n) => Array.from({ length: n }, (_, i) => ({ id: `p${i + 1}`, name: `Player ${i + 1}` }))
@@ -154,6 +155,50 @@ describe('conference + finals', () => {
     for (const m of finals) {
       expect(confOf(m.player1Id)).toBe(confOf(m.player2Id))
     }
+  })
+})
+
+describe('custom points', () => {
+  it('applies a 2-1-0 scheme', () => {
+    const p = players(2)
+    const matches = [{ id: 'm', round: 1, player1Id: 'p1', player2Id: 'p2', result: { winner: 'player1' } }]
+    const rows = RR.computeStandings(p, matches, { win: 2, draw: 1, loss: 0 })
+    expect(rows[0].pts).toBe(2)
+  })
+
+  it('can award loss points (participation schemes)', () => {
+    const p = players(2)
+    const matches = [{ id: 'm', round: 1, player1Id: 'p1', player2Id: 'p2', result: { winner: 'player1' } }]
+    const rows = RR.computeStandings(p, matches, { win: 3, draw: 2, loss: 1 })
+    expect(rows[1].pts).toBe(1)
+  })
+})
+
+describe('racing', () => {
+  it('scores linear points by heat size', () => {
+    const p = players(4)
+    let matches = Racing.recordHeat([], ['p2', 'p1', 'p3'])   // 3 racers: 3/2/1 pts
+    matches = Racing.recordHeat(matches, ['p1', 'p2', 'p3', 'p4']) // 4 racers: 4/3/2/1
+    const rows = Racing.computeStandings(p, matches, null)
+    expect(rows[0].id).toBe('p1') // 2 + 4 = 6
+    expect(rows[0].pts).toBe(6)
+    expect(rows[0].wins).toBe(1)
+    expect(rows.find(r => r.id === 'p2').pts).toBe(6) // 3 + 3 — tied on pts, p1 ahead on wins? both have 1 win
+    expect(rows.find(r => r.id === 'p4').races).toBe(1)
+  })
+
+  it('scores from a position table, zero beyond table length', () => {
+    const p = players(3)
+    const matches = Racing.recordHeat([], ['p1', 'p2', 'p3'])
+    const rows = Racing.computeStandings(p, matches, [10, 5])
+    expect(rows.find(r => r.id === 'p1').pts).toBe(10)
+    expect(rows.find(r => r.id === 'p3').pts).toBe(0)
+  })
+
+  it('numbers heats sequentially', () => {
+    let matches = Racing.recordHeat([], ['p1', 'p2'])
+    matches = Racing.recordHeat(matches, ['p2', 'p1'])
+    expect(matches.map(m => m.heat)).toEqual([1, 2])
   })
 })
 

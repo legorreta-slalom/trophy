@@ -10,9 +10,9 @@ export const roundComplete = (matches, round) =>
 
 // Pair adjacent players in the standings, skipping pairs that already met.
 // Odd player out (lowest ranked) gets a bye: auto-win worth 3 pts.
-export function generateNextRound(players, matches) {
+export function generateNextRound(players, matches, points) {
   const round = currentRound(matches) + 1
-  const ranked = round === 1 ? [...players] : computeStandings(players, matches)
+  const ranked = round === 1 ? [...players] : computeStandings(players, matches, points)
 
   const played = new Set(
     matches.map(m => [m.player1Id, m.player2Id].sort().join(':'))

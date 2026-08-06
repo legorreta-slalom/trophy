@@ -32,10 +32,10 @@ export const groupsComplete = (matches) =>
 export const knockoutStarted = (matches) => matches.some(m => m.phase === 'knockout')
 
 // Top 2 per group, cross-seeded so round 1 pairs A1 vs B2, B1 vs C2, ..., last winner vs A2.
-export function generateKnockout(players, matches) {
+export function generateKnockout(players, matches, points) {
   const groups = groupNames(matches)
   const top2 = groups.map(g =>
-    RR.computeStandings(groupPlayers(players, matches, g), groupMatches(matches, g)).slice(0, 2)
+    RR.computeStandings(groupPlayers(players, matches, g), groupMatches(matches, g), points).slice(0, 2)
   )
   const seeds = groups.flatMap((_, i) => [top2[i][0], top2[(i + 1) % groups.length][1]])
   const knockout = SE.generate(seeds, { prePaired: true }).map(m => ({ ...m, phase: 'knockout' }))
