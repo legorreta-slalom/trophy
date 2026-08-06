@@ -1,1 +1,11 @@
-[]
+[
+  {
+    "id": "252db9e0-fd29-4ff2-a70f-fd98738a5ab2",
+    "name": "mk test",
+    "gameId": "31af964a-d8f1-43ca-b912-7ba7b9db2e92",
+    "format": "leaderboard",
+    "status": "active",
+    "startDate": "2026-08-07",
+    "endDate": "2026-08-10"
+  }
+]
