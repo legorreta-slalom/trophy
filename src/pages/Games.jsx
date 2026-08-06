@@ -4,7 +4,7 @@ import {
   Title2, Body1,
   Button, Input, Field, Avatar,
   Dialog, DialogSurface, DialogTitle, DialogBody, DialogActions, DialogContent, DialogTrigger,
-  Table, TableHeader, TableRow, TableHeaderCell, TableBody, TableCell, TableCellActions,
+  Table, TableHeader, TableRow, TableHeaderCell, TableBody, TableCell, TableCellActions, TableCellLayout,
 } from '@fluentui/react-components'
 import { AddRegular, DeleteRegular, EditRegular } from '@fluentui/react-icons'
 import { getGames, saveGame, deleteGame, getTournaments } from '../store.js'
@@ -64,22 +64,22 @@ export default function Games() {
           <TableHeader>
             <TableRow>
               <TableHeaderCell>Name</TableHeaderCell>
-              <TableHeaderCell />
             </TableRow>
           </TableHeader>
           <TableBody>
             {games.map(g => (
               <TableRow key={g.id}>
                 <TableCell>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <Avatar name={g.name} color="colorful" shape="square" size={28} image={g.image ? { src: g.image } : undefined} />
+                  <TableCellLayout
+                    media={<Avatar name={g.name} color="colorful" shape="square" size={28} image={g.image ? { src: g.image } : undefined} />}
+                  >
                     {g.name}
-                  </span>
+                  </TableCellLayout>
+                  <TableCellActions>
+                    <Button appearance="subtle" icon={<EditRegular />} aria-label="Edit" onClick={() => openEdit(g)} />
+                    <Button appearance="subtle" icon={<DeleteRegular />} aria-label="Delete" onClick={() => setPendingDelete(g)} />
+                  </TableCellActions>
                 </TableCell>
-                <TableCellActions>
-                  <Button appearance="subtle" icon={<EditRegular />} aria-label="Edit" onClick={() => openEdit(g)} />
-                  <Button appearance="subtle" icon={<DeleteRegular />} aria-label="Delete" onClick={() => setPendingDelete(g)} />
-                </TableCellActions>
               </TableRow>
             ))}
           </TableBody>

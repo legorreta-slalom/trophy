@@ -723,23 +723,24 @@ export default function TournamentDetail() {
                 <TableHeader>
                   <TableRow>
                     <TableHeaderCell>Name</TableHeaderCell>
-                    <TableHeaderCell />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {tournament.players.map((p, i) => (
                     <TableRow key={p.id}>
-                      <TableCell><PlayerLabel player={p} size={28} /></TableCell>
-                      <TableCellActions>
-                        <ImagePicker compact name={p.name} value={p.image ?? null} onChange={(v) => setPlayerImage(p.id, v)} />
-                        {tournament.status === 'upcoming' && (
-                          <>
-                            <Button appearance="subtle" icon={<ArrowUpRegular />} aria-label="Move up" disabled={i === 0} onClick={() => movePlayer(i, -1)} />
-                            <Button appearance="subtle" icon={<ArrowDownRegular />} aria-label="Move down" disabled={i === tournament.players.length - 1} onClick={() => movePlayer(i, 1)} />
-                            <Button appearance="subtle" icon={<DeleteRegular />} aria-label="Remove" onClick={() => removePlayer(p.id)} />
-                          </>
-                        )}
-                      </TableCellActions>
+                      <TableCell>
+                        <PlayerLabel player={p} size={28} />
+                        <TableCellActions>
+                          <ImagePicker compact name={p.name} value={p.image ?? null} onChange={(v) => setPlayerImage(p.id, v)} />
+                          {tournament.status === 'upcoming' && (
+                            <>
+                              <Button appearance="subtle" icon={<ArrowUpRegular />} aria-label="Move up" disabled={i === 0} onClick={() => movePlayer(i, -1)} />
+                              <Button appearance="subtle" icon={<ArrowDownRegular />} aria-label="Move down" disabled={i === tournament.players.length - 1} onClick={() => movePlayer(i, 1)} />
+                              <Button appearance="subtle" icon={<DeleteRegular />} aria-label="Remove" onClick={() => removePlayer(p.id)} />
+                            </>
+                          )}
+                        </TableCellActions>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
