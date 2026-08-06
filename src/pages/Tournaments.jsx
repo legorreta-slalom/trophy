@@ -31,6 +31,7 @@ const EMPTY_FORM = {
   positionPreset: 'linear', customTable: '',
   bestOf: 1,
   teams: false,
+  streamUrl: '',
 }
 
 const BRACKET_FORMATS = ['single-elimination', 'double-elimination', 'group-knockout', 'season-playoffs', 'conference-finals']
@@ -108,6 +109,7 @@ export default function Tournaments() {
       customTable: t.positionPoints?.join(', ') ?? '',
       bestOf: t.bestOf ?? 1,
       teams: t.teams ?? false,
+      streamUrl: t.streamUrl ?? '',
     })
   }
 
@@ -141,6 +143,7 @@ export default function Tournaments() {
       image: form.image,
       points: form.points,
       teams: form.teams,
+      streamUrl: form.streamUrl.trim() || null,
       bestOf: BRACKET_FORMATS.includes(form.format) ? form.bestOf : 1,
       positionPoints: form.format !== 'racing' ? null
         : form.positionPreset === 'custom'
@@ -289,6 +292,11 @@ export default function Tournaments() {
                   </Field>
                 </div>
               )}
+              <div className={styles.formField}>
+                <Field label="Stream / watch link" hint="Optional. Teams call, Twitch, a webcam URL — shown as a Watch button.">
+                  <Input value={form.streamUrl} onChange={(_, { value }) => set('streamUrl', value)} placeholder="https://…" />
+                </Field>
+              </div>
               <div className={styles.formField}>
                 <Switch
                   label="Participants are teams"

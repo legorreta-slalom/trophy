@@ -12,7 +12,7 @@ import {
   Popover, PopoverTrigger, PopoverSurface,
   Avatar,
 } from '@fluentui/react-components'
-import { AddRegular, DeleteRegular, ChevronLeftRegular, DismissRegular, QrCodeRegular, ArrowUpRegular, ArrowDownRegular } from '@fluentui/react-icons'
+import { AddRegular, DeleteRegular, ChevronLeftRegular, DismissRegular, QrCodeRegular, ArrowUpRegular, ArrowDownRegular, VideoRegular, LinkRegular } from '@fluentui/react-icons'
 import { useEffect } from 'react'
 import QRCode from 'qrcode'
 import { getTournaments, saveTournament, getGames } from '../store.js'
@@ -170,6 +170,31 @@ function ScorePopover({ p1Name, p2Name, allowDraw, onSave }) {
 
 const scoreLabel = (result) => result?.score ? ` ${result.score[0]}–${result.score[1]}` : ''
 
+// Host-only: attach/remove a stream URL on a match (#45)
+function LinkPopover({ value, onSave }) {
+  const [open, setOpen] = useState(false)
+  const [url, setUrl] = useState(value ?? '')
+  return (
+    <Popover open={open} onOpenChange={(_, { open: o }) => { setOpen(o); if (o) setUrl(value ?? '') }} positioning="below-end">
+      <PopoverTrigger disableButtonEnhancement>
+        <Button size="small" appearance="subtle" icon={<LinkRegular />} aria-label="Set stream link" />
+      </PopoverTrigger>
+      <PopoverSurface style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', padding: '12px' }}>
+        <Field label="Stream / watch URL">
+          <Input value={url} onChange={(_, { value: v }) => setUrl(v)} placeholder="https://…" style={{ width: '220px' }} />
+        </Field>
+        <Button appearance="primary" size="small" onClick={() => { onSave(url.trim() || null); setOpen(false) }}>Save</Button>
+      </PopoverSurface>
+    </Popover>
+  )
+}
+
+const WatchChip = ({ url }) => (
+  <Button as="a" href={url} target="_blank" rel="noreferrer" size="small" appearance="subtle" icon={<VideoRegular />}>
+    Watch
+  </Button>
+)
+
 // Participant-reported entry awaiting host confirmation (#44)
 function PendingEntry({ match, playerById, onConfirm, onReject }) {
   const pe = match.pendingEntry
@@ -203,7 +228,7 @@ function roundLabel(round, maxRound) {
   return `Round ${round}`
 }
 
-function RoundRobinView({ matches, playerById, onResult, onClear, onConfirm, onReject }) {
+function RoundRobinView({ matches, playerById, onResult, onClear, onConfirm, onReject, onSetStream }) {
   const styles = useStyles()
   const rounds = {}
   for (const m of matches) {
@@ -227,6 +252,8 @@ function RoundRobinView({ matches, playerById, onResult, onClear, onConfirm, onR
                   <Body1 className={m.result?.winner === 'player2' ? styles.resultWinner : ''}>
                     {m.player2Id === null ? 'Bye' : <PlayerLabel player={p2} />}
                   </Body1>
+                  {m.streamUrl && !m.result && <WatchChip url={m.streamUrl} />}
+                  {onSetStream && !m.result && <LinkPopover value={m.streamUrl} onSave={(url) => onSetStream(m.id, url)} />}
                 </div>
                 {m.result ? (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -812,6 +839,10 @@ export default function TournamentDetail() {
 
   const handleRRResult = (matchId, result) => submitEntry('plain', matchId, result)
 
+  function handleSetStream(matchId, url) {
+    save({ ...tournament, matches: tournament.matches.map(m => m.id === matchId ? { ...m, streamUrl: url ?? undefined } : m) })
+  }
+
   // Bo1: the click IS the match result. BoN: it records one game; the match
   // resolves when someone reaches the needed win count.
   function applyBracketEntry(matches, matchId, result) {
@@ -972,6 +1003,7 @@ export default function TournamentDetail() {
           </div>
         </div>
         <div className={styles.headerActions}>
+          {tournament.streamUrl && <WatchChip url={tournament.streamUrl} />}
           <Button appearance="subtle" icon={<QrCodeRegular />} aria-label="Share QR" onClick={() => setShareOpen(true)} />
           {tournament.status === 'upcoming' && tournament.players.length >= minPlayers && (
             <Button appearance="primary" onClick={start}>Start tournament</Button>
@@ -1110,6 +1142,7 @@ export default function TournamentDetail() {
               onClear={tournament.status === 'active' && !knockoutHasStarted ? handleClear : undefined}
               onConfirm={onConfirm}
               onReject={onReject}
+              onSetStream={canModerate ? handleSetStream : undefined}
             />
             {swissCanAdvance && (
               <Button appearance="primary" onClick={generateNextSwissRound}>
