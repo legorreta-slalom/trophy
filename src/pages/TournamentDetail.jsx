@@ -12,7 +12,7 @@ import {
   Popover, PopoverTrigger, PopoverSurface,
   Avatar,
 } from '@fluentui/react-components'
-import { AddRegular, DeleteRegular, ChevronLeftRegular, DismissRegular, QrCodeRegular, ArrowUpRegular, ArrowDownRegular, VideoRegular, LinkRegular } from '@fluentui/react-icons'
+import { AddRegular, DeleteRegular, ChevronLeftRegular, DismissRegular, QrCodeRegular, ArrowUpRegular, ArrowDownRegular, VideoRegular, LinkRegular, CommentRegular, SendRegular } from '@fluentui/react-icons'
 import { useEffect } from 'react'
 import QRCode from 'qrcode'
 import { getTournaments, saveTournament, getGames } from '../store.js'
@@ -195,6 +195,58 @@ const WatchChip = ({ url }) => (
   </Button>
 )
 
+// Per-match comment thread (#46). Anyone unlocked can post; hosts can delete.
+function CommentsPopover({ match, onAdd, onDelete }) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState('')
+  const comments = match.comments ?? []
+
+  function post() {
+    const t = text.trim()
+    if (!t) return
+    onAdd(match.id, t)
+    setText('')
+  }
+
+  return (
+    <Popover open={open} onOpenChange={(_, { open: o }) => setOpen(o)} positioning="below-end">
+      <PopoverTrigger disableButtonEnhancement>
+        <Button size="small" appearance="subtle" icon={<CommentRegular />} aria-label="Comments">
+          {comments.length > 0 ? String(comments.length) : ''}
+        </Button>
+      </PopoverTrigger>
+      <PopoverSurface style={{ width: '300px', padding: '12px' }}>
+        <div style={{ maxHeight: '220px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {comments.length === 0 && <Caption1>No comments yet. Start the trash talk.</Caption1>}
+          {comments.map(c => (
+            <div key={c.id} style={{ display: 'flex', gap: '6px', alignItems: 'baseline' }}>
+              <div style={{ flex: 1 }}>
+                <Caption1 style={{ color: tokens.colorNeutralForeground3 }}>{c.author}</Caption1>
+                <Body1 style={{ display: 'block' }}>{c.text}</Body1>
+              </div>
+              {onDelete && (
+                <Button size="small" appearance="subtle" icon={<DismissRegular />} aria-label="Delete comment" onClick={() => onDelete(match.id, c.id)} />
+              )}
+            </div>
+          ))}
+        </div>
+        {onAdd && (
+          <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
+            <Input
+              value={text}
+              placeholder="Say something…"
+              onChange={(_, { value }) => setText(value)}
+              onKeyDown={e => e.key === 'Enter' && post()}
+              style={{ flex: 1 }}
+            />
+            <Button size="small" appearance="primary" icon={<SendRegular />} aria-label="Post" onClick={post} disabled={!text.trim()} />
+          </div>
+        )}
+      </PopoverSurface>
+    </Popover>
+  )
+}
+
 // Participant-reported entry awaiting host confirmation (#44)
 function PendingEntry({ match, playerById, onConfirm, onReject }) {
   const pe = match.pendingEntry
@@ -228,7 +280,7 @@ function roundLabel(round, maxRound) {
   return `Round ${round}`
 }
 
-function RoundRobinView({ matches, playerById, onResult, onClear, onConfirm, onReject, onSetStream }) {
+function RoundRobinView({ matches, playerById, onResult, onClear, onConfirm, onReject, onSetStream, onComment, onDeleteComment }) {
   const styles = useStyles()
   const rounds = {}
   for (const m of matches) {
@@ -254,6 +306,9 @@ function RoundRobinView({ matches, playerById, onResult, onClear, onConfirm, onR
                   </Body1>
                   {m.streamUrl && !m.result && <WatchChip url={m.streamUrl} />}
                   {onSetStream && !m.result && <LinkPopover value={m.streamUrl} onSave={(url) => onSetStream(m.id, url)} />}
+                  {(onComment || m.comments?.length > 0) && (
+                    <CommentsPopover match={m} onAdd={onComment} onDelete={onDeleteComment} />
+                  )}
                 </div>
                 {m.result ? (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -326,7 +381,7 @@ function StandingsView({ players, matches, points }) {
   )
 }
 
-function LeaderboardView({ tournament, playerById, onRecord, onDelete, onConfirm, onReject }) {
+function LeaderboardView({ tournament, playerById, onRecord, onDelete, onConfirm, onReject, onComment, onDeleteComment }) {
   const styles = useStyles()
   const [p1Id, setP1Id] = useState('')
   const [p2Id, setP2Id] = useState('')
@@ -413,6 +468,9 @@ function LeaderboardView({ tournament, playerById, onRecord, onDelete, onConfirm
                 <Body1 className={m.result?.winner === 'player2' ? styles.resultWinner : ''}><PlayerLabel player={p2} /></Body1>
               </div>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {(onComment || m.comments?.length > 0) && (
+                  <CommentsPopover match={m} onAdd={onComment} onDelete={onDeleteComment} />
+                )}
                 {m.result ? (
                   <>
                     <Caption1>{`${m.result.winner === 'draw' ? 'Draw' : m.result.winner === 'player1' ? `${p1?.name} wins` : `${p2?.name} wins`}${scoreLabel(m.result)}`}</Caption1>
@@ -527,7 +585,7 @@ function RaceStandingsView({ tournament }) {
   )
 }
 
-function DoubleElimView({ tournament, playerById, onResult, onConfirm, onReject }) {
+function DoubleElimView({ tournament, playerById, onResult, onConfirm, onReject, onComment, onDeleteComment }) {
   const section = (bracket) => tournament.matches.filter(m => m.bracket === bracket)
   return (
     <>
@@ -538,6 +596,8 @@ function DoubleElimView({ tournament, playerById, onResult, onConfirm, onReject 
         onResult={onResult}
         onConfirm={onConfirm}
         onReject={onReject}
+        onComment={onComment}
+        onDeleteComment={onDeleteComment}
         labelFn={(r, max) => r === max ? 'WB Final' : `WB Round ${r}`}
       />
       <Title3 style={{ display: 'block', margin: '20px 0 8px' }}>Losers bracket</Title3>
@@ -547,6 +607,8 @@ function DoubleElimView({ tournament, playerById, onResult, onConfirm, onReject 
         onResult={onResult}
         onConfirm={onConfirm}
         onReject={onReject}
+        onComment={onComment}
+        onDeleteComment={onDeleteComment}
         labelFn={(r, max) => r === max ? 'LB Final' : `LB Round ${r}`}
       />
       <Title3 style={{ display: 'block', margin: '20px 0 8px' }}>Grand final</Title3>
@@ -556,13 +618,15 @@ function DoubleElimView({ tournament, playerById, onResult, onConfirm, onReject 
         onResult={onResult}
         onConfirm={onConfirm}
         onReject={onReject}
+        onComment={onComment}
+        onDeleteComment={onDeleteComment}
         labelFn={(r) => r === 2 ? 'Bracket reset' : 'Grand final'}
       />
     </>
   )
 }
 
-function GroupsView({ tournament, playerById, onResult, onClear, onConfirm, onReject, groupLabel = (g) => `Group ${g}` }) {
+function GroupsView({ tournament, playerById, onResult, onClear, onConfirm, onReject, onComment, onDeleteComment, groupLabel = (g) => `Group ${g}` }) {
   const styles = useStyles()
   return (
     <>
@@ -578,6 +642,8 @@ function GroupsView({ tournament, playerById, onResult, onClear, onConfirm, onRe
                 onClear={onClear}
                 onConfirm={onConfirm}
                 onReject={onReject}
+                onComment={onComment}
+                onDeleteComment={onDeleteComment}
               />
             </div>
             <div style={{ flex: '0 1 420px' }}>
@@ -594,7 +660,7 @@ function GroupsView({ tournament, playerById, onResult, onClear, onConfirm, onRe
   )
 }
 
-function BracketView({ matches, playerById, onResult, onClear, onConfirm, onReject, labelFn = roundLabel }) {
+function BracketView({ matches, playerById, onResult, onClear, onConfirm, onReject, onComment, onDeleteComment, labelFn = roundLabel }) {
   const styles = useStyles()
   if (!matches.length) return null
 
@@ -660,6 +726,11 @@ function BracketView({ matches, playerById, onResult, onClear, onConfirm, onReje
                       {m.result && onClear && p1 && p2 && (
                         <div style={{ display: 'flex', justifyContent: 'center', padding: '2px', backgroundColor: tokens.colorNeutralBackground2 }}>
                           <Button appearance="subtle" size="small" icon={<DismissRegular />} onClick={() => onClear(m.id)}>Clear</Button>
+                        </div>
+                      )}
+                      {(onComment || m.comments?.length > 0) && p1 && p2 && (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '2px', backgroundColor: tokens.colorNeutralBackground2 }}>
+                          <CommentsPopover match={m} onAdd={onComment} onDelete={onDeleteComment} />
                         </div>
                       )}
                       {!m.result && m.pendingEntry && (
@@ -839,6 +910,25 @@ export default function TournamentDetail() {
 
   const handleRRResult = (matchId, result) => submitEntry('plain', matchId, result)
 
+  function handleAddComment(matchId, text) {
+    const settings = getPublishSettings()
+    const author = settings.reporterName?.trim() || (settings.role === 'participant' ? 'Participant' : 'Host')
+    const comment = { id: crypto.randomUUID(), author, text, at: new Date().toISOString() }
+    save({
+      ...tournament,
+      matches: tournament.matches.map(m =>
+        m.id === matchId ? { ...m, comments: [...(m.comments ?? []), comment].slice(-50) } : m),
+    })
+  }
+
+  function handleDeleteComment(matchId, commentId) {
+    save({
+      ...tournament,
+      matches: tournament.matches.map(m =>
+        m.id === matchId ? { ...m, comments: (m.comments ?? []).filter(c => c.id !== commentId) } : m),
+    })
+  }
+
   function handleSetStream(matchId, url) {
     save({ ...tournament, matches: tournament.matches.map(m => m.id === matchId ? { ...m, streamUrl: url ?? undefined } : m) })
   }
@@ -973,6 +1063,8 @@ export default function TournamentDetail() {
   const canModerate = tournament.status === 'active' && getPublishSettings().role !== 'participant'
   const onConfirm = canModerate ? confirmPending : undefined
   const onReject = canModerate ? rejectPending : undefined
+  const onComment = tournament.status === 'active' && getPublishSettings().token ? handleAddComment : undefined
+  const onDeleteComment = canModerate ? handleDeleteComment : undefined
 
   return (
     <>
@@ -1119,6 +1211,8 @@ export default function TournamentDetail() {
             onDelete={tournament.status === 'active' ? handleLBDelete : undefined}
             onConfirm={onConfirm}
             onReject={onReject}
+            onComment={onComment}
+            onDeleteComment={onDeleteComment}
           />
         )}
 
@@ -1143,6 +1237,8 @@ export default function TournamentDetail() {
               onConfirm={onConfirm}
               onReject={onReject}
               onSetStream={canModerate ? handleSetStream : undefined}
+              onComment={onComment}
+              onDeleteComment={onDeleteComment}
             />
             {swissCanAdvance && (
               <Button appearance="primary" onClick={generateNextSwissRound}>
@@ -1172,6 +1268,8 @@ export default function TournamentDetail() {
             onClear={tournament.status === 'active' && !knockoutHasStarted ? handleClear : undefined}
             onConfirm={onConfirm}
             onReject={onReject}
+            onComment={onComment}
+            onDeleteComment={onDeleteComment}
             groupLabel={isCF ? (g) => `${g} Conference` : undefined}
           />
         )}
@@ -1183,6 +1281,8 @@ export default function TournamentDetail() {
             onResult={tournament.status === 'active' ? handleDEResult : undefined}
             onConfirm={onConfirm}
             onReject={onReject}
+            onComment={onComment}
+            onDeleteComment={onDeleteComment}
           />
         )}
 
@@ -1194,6 +1294,8 @@ export default function TournamentDetail() {
             onClear={tournament.status === 'active' ? (isBracket ? handleSEClear : handleKOClear) : undefined}
             onConfirm={onConfirm}
             onReject={onReject}
+            onComment={onComment}
+            onDeleteComment={onDeleteComment}
           />
         )}
       </div>
