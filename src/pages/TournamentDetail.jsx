@@ -273,15 +273,26 @@ function LeaderboardView({ tournament, playerById, onRecord, onDelete }) {
   const styles = useStyles()
   const [p1Id, setP1Id] = useState('')
   const [p2Id, setP2Id] = useState('')
+  const [scoreA, setScoreA] = useState('')
+  const [scoreB, setScoreB] = useState('')
 
   const players = tournament.players
   const canRecord = p1Id && p2Id && p1Id !== p2Id
+  const hasScore = scoreA !== '' && scoreB !== ''
   const recent = [...tournament.matches].reverse()
 
-  function record(winner) {
-    onRecord(p1Id, p2Id, { winner })
+  function record(winner, score) {
+    onRecord(p1Id, p2Id, { winner, ...(score ? { score } : {}) })
     setP1Id('')
     setP2Id('')
+    setScoreA('')
+    setScoreB('')
+  }
+
+  function recordWithScore() {
+    const score = [Number(scoreA), Number(scoreB)]
+    const winner = score[0] > score[1] ? 'player1' : score[1] > score[0] ? 'player2' : 'draw'
+    record(winner, score)
   }
 
   return (
@@ -310,9 +321,24 @@ function LeaderboardView({ tournament, playerById, onRecord, onDelete }) {
               {players.map(p => <Option key={p.id} value={p.id} disabled={p.id === p1Id}>{p.name}</Option>)}
             </Dropdown>
           </Field>
-          <Button disabled={!canRecord} onClick={() => record('player1')}>{playerById[p1Id]?.name ?? 'P1'} wins</Button>
-          <Button disabled={!canRecord} onClick={() => record('draw')}>Draw</Button>
-          <Button disabled={!canRecord} onClick={() => record('player2')}>{playerById[p2Id]?.name ?? 'P2'} wins</Button>
+          <Field label="Score (optional)">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Input type="number" min="0" value={scoreA} onChange={(_, { value }) => setScoreA(value)} style={{ width: '72px' }} aria-label={`${playerById[p1Id]?.name ?? 'Player 1'} score`} />
+              <Caption1>–</Caption1>
+              <Input type="number" min="0" value={scoreB} onChange={(_, { value }) => setScoreB(value)} style={{ width: '72px' }} aria-label={`${playerById[p2Id]?.name ?? 'Player 2'} score`} />
+            </div>
+          </Field>
+          {hasScore ? (
+            <Button appearance="primary" disabled={!canRecord} onClick={recordWithScore}>
+              Record {scoreA}–{scoreB}
+            </Button>
+          ) : (
+            <>
+              <Button disabled={!canRecord} onClick={() => record('player1')}>{playerById[p1Id]?.name ?? 'P1'} wins</Button>
+              <Button disabled={!canRecord} onClick={() => record('draw')}>Draw</Button>
+              <Button disabled={!canRecord} onClick={() => record('player2')}>{playerById[p2Id]?.name ?? 'P2'} wins</Button>
+            </>
+          )}
         </div>
       )}
 
@@ -330,7 +356,7 @@ function LeaderboardView({ tournament, playerById, onRecord, onDelete }) {
                 <Body1 className={m.result?.winner === 'player2' ? styles.resultWinner : ''}><PlayerLabel player={p2} /></Body1>
               </div>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Caption1>{m.result.winner === 'draw' ? 'Draw' : m.result.winner === 'player1' ? `${p1?.name} wins` : `${p2?.name} wins`}</Caption1>
+                <Caption1>{`${m.result.winner === 'draw' ? 'Draw' : m.result.winner === 'player1' ? `${p1?.name} wins` : `${p2?.name} wins`}${scoreLabel(m.result)}`}</Caption1>
                 {onDelete && (
                   <Button appearance="subtle" size="small" icon={<DismissRegular />} aria-label="Delete result" onClick={() => onDelete(m.id)} />
                 )}
