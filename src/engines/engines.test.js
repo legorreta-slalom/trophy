@@ -281,6 +281,34 @@ describe('racing', () => {
   })
 })
 
+describe('elo', () => {
+  const t = (id, gameId, matches, names = ['Alice', 'Bob']) => ({
+    id, gameId, startDate: '2026-01-01', players: names.map((name, i) => ({ id: `${id}-p${i + 1}`, name })),
+    matches,
+  })
+
+  it('winner gains what the loser drops; equal ratings move by K/2', async () => {
+    const { computeElo, eloFor } = await import('./elo.js')
+    const ratings = computeElo([
+      t('t1', 'g1', [{ id: 'm', player1Id: 't1-p1', player2Id: 't1-p2', result: { winner: 'player1' } }]),
+    ])
+    expect(eloFor(ratings, 'alice').rating).toBe(1016)
+    expect(eloFor(ratings, 'Bob').rating).toBe(984)
+  })
+
+  it('filters by game and skips pending/racing entries', async () => {
+    const { computeElo, eloFor } = await import('./elo.js')
+    const ratings = computeElo([
+      t('t1', 'g1', [
+        { id: 'm1', player1Id: 't1-p1', player2Id: 't1-p2', result: { winner: 'player1' } },
+        { id: 'm2', player1Id: 't1-p1', player2Id: 't1-p2', result: { winner: 'player2' }, pendingEntry: {} },
+      ]),
+      t('t2', 'g2', [{ id: 'm3', player1Id: 't2-p1', player2Id: 't2-p2', result: { winner: 'player2' } }]),
+    ], 'g1')
+    expect(eloFor(ratings, 'Alice').games).toBe(1)
+  })
+})
+
 describe('champion', () => {
   it('resolves the bracket winner', () => {
     const p = players(4)

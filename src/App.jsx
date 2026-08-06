@@ -14,6 +14,7 @@ import Games from './pages/Games.jsx'
 import HallOfFame from './pages/HallOfFame.jsx'
 import Kiosk from './pages/Kiosk.jsx'
 import Activity from './pages/Activity.jsx'
+import PlayerProfile from './pages/PlayerProfile.jsx'
 import JSZip from 'jszip'
 import { buildDataFiles, getPublishSettings, savePublishSettings, publishToGitHub, getAccess } from './publish.js'
 import { pullPublished } from './hydrate.js'
@@ -370,6 +371,7 @@ export default function App() {
           <Route path="/games" element={<Games />} />
           <Route path="/hall-of-fame" element={<HallOfFame />} />
           <Route path="/activity" element={<Activity />} />
+          <Route path="/players/:name" element={<PlayerProfile />} />
         </Routes>
       </main>
     </div>

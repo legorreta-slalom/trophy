@@ -5,8 +5,10 @@ import {
   Dropdown, Option, Field, Avatar,
   Table, TableHeader, TableRow, TableHeaderCell, TableBody, TableCell,
 } from '@fluentui/react-components'
+import { useNavigate } from 'react-router-dom'
 import { getTournaments, getGames } from '../store.js'
 import { getChampion } from '../engines/champion.js'
+import { computeElo, eloFor } from '../engines/elo.js'
 
 const useStyles = makeStyles({
   header: {
@@ -42,8 +44,10 @@ function aggregate(tournaments) {
 
 export default function HallOfFame() {
   const styles = useStyles()
+  const navigate = useNavigate()
   const [gameId, setGameId] = useState('')
   const games = getGames()
+  const elo = computeElo(getTournaments(), gameId || null)
 
   const completed = getTournaments().filter(t =>
     t.status === 'completed' && (!gameId || t.gameId === gameId)
@@ -78,11 +82,12 @@ export default function HallOfFame() {
               <TableHeaderCell>Player</TableHeaderCell>
               <TableHeaderCell>Championships</TableHeaderCell>
               <TableHeaderCell>Tournaments</TableHeaderCell>
+              <TableHeaderCell>Elo</TableHeaderCell>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((r, i) => (
-              <TableRow key={r.name}>
+              <TableRow key={r.name} onClick={() => navigate(`/players/${encodeURIComponent(r.name)}`)} style={{ cursor: 'pointer' }}>
                 <TableCell>{i + 1}</TableCell>
                 <TableCell>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -96,6 +101,7 @@ export default function HallOfFame() {
                     : <Caption1>—</Caption1>}
                 </TableCell>
                 <TableCell>{r.played}</TableCell>
+                <TableCell>{eloFor(elo, r.name) ? Math.round(eloFor(elo, r.name).rating) : '—'}</TableCell>
               </TableRow>
             ))}
           </TableBody>
