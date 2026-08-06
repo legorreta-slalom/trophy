@@ -8,7 +8,7 @@ import {
   Combobox, Option,
   Dropdown,
   Card, CardHeader,
-  Badge, Avatar,
+  Badge, Avatar, Switch,
 } from '@fluentui/react-components'
 import { AddRegular, DeleteRegular, EditRegular } from '@fluentui/react-icons'
 import { getTournaments, saveTournament, deleteTournament, getGames, saveGame } from '../store.js'
@@ -30,6 +30,7 @@ const EMPTY_FORM = {
   points: { win: 3, draw: 1, loss: 0 },
   positionPreset: 'linear', customTable: '',
   bestOf: 1,
+  teams: false,
 }
 
 const BRACKET_FORMATS = ['single-elimination', 'double-elimination', 'group-knockout', 'season-playoffs', 'conference-finals']
@@ -106,6 +107,7 @@ export default function Tournaments() {
       positionPreset: presetFromTable(t.positionPoints),
       customTable: t.positionPoints?.join(', ') ?? '',
       bestOf: t.bestOf ?? 1,
+      teams: t.teams ?? false,
     })
   }
 
@@ -138,6 +140,7 @@ export default function Tournaments() {
       endDate: form.endDate,
       image: form.image,
       points: form.points,
+      teams: form.teams,
       bestOf: BRACKET_FORMATS.includes(form.format) ? form.bestOf : 1,
       positionPoints: form.format !== 'racing' ? null
         : form.positionPreset === 'custom'
@@ -286,6 +289,13 @@ export default function Tournaments() {
                   </Field>
                 </div>
               )}
+              <div className={styles.formField}>
+                <Switch
+                  label="Participants are teams"
+                  checked={form.teams}
+                  onChange={(_, { checked }) => set('teams', checked)}
+                />
+              </div>
               {BRACKET_FORMATS.includes(form.format) && (
                 <div className={styles.formField}>
                   <Field label="Bracket matches" hint="Best-of-N: winners need a majority of games.">

@@ -647,6 +647,7 @@ export default function TournamentDetail() {
   const [games] = useState(getGames)
   const [selectedTab, setSelectedTab] = useState('players')
   const [newPlayerName, setNewPlayerName] = useState('')
+  const [newMembers, setNewMembers] = useState('')
   const [shareOpen, setShareOpen] = useState(false)
   // #report deep link (from the QR): open the PIN unlock if this browser can't report yet
   const [unlockOpen, setUnlockOpen] = useState(() =>
@@ -665,8 +666,15 @@ export default function TournamentDetail() {
   function addPlayer() {
     const name = newPlayerName.trim()
     if (!name) return
-    save({ ...tournament, players: [...tournament.players, { id: crypto.randomUUID(), name }] })
+    const members = tournament.teams
+      ? newMembers.split(',').map(s => s.trim()).filter(Boolean)
+      : undefined
+    save({
+      ...tournament,
+      players: [...tournament.players, { id: crypto.randomUUID(), name, ...(members?.length ? { members } : {}) }],
+    })
     setNewPlayerName('')
+    setNewMembers('')
   }
 
   function removePlayer(playerId) {
@@ -888,15 +896,26 @@ export default function TournamentDetail() {
           <>
             {tournament.status === 'upcoming' && (
               <div className={styles.rosterAdd}>
-                <Field label="Add player">
+                <Field label={tournament.teams ? 'Add team' : 'Add player'}>
                   <Input
-                    placeholder="Player name"
+                    placeholder={tournament.teams ? 'Team name' : 'Player name'}
                     value={newPlayerName}
                     onChange={(_, { value }) => setNewPlayerName(value)}
                     onKeyDown={e => e.key === 'Enter' && addPlayer()}
                     style={{ width: '240px' }}
                   />
                 </Field>
+                {tournament.teams && (
+                  <Field label="Members (comma-separated)">
+                    <Input
+                      placeholder="Alice, Bob"
+                      value={newMembers}
+                      onChange={(_, { value }) => setNewMembers(value)}
+                      onKeyDown={e => e.key === 'Enter' && addPlayer()}
+                      style={{ width: '240px' }}
+                    />
+                  </Field>
+                )}
                 <Button icon={<AddRegular />} onClick={addPlayer} disabled={!newPlayerName.trim()}>Add</Button>
               </div>
             )}
@@ -913,7 +932,14 @@ export default function TournamentDetail() {
                   {tournament.players.map((p, i) => (
                     <TableRow key={p.id}>
                       <TableCell>
-                        <PlayerLabel player={p} size={28} />
+                        <span style={{ display: 'inline-flex', flexDirection: 'column' }}>
+                          <PlayerLabel player={p} size={28} />
+                          {p.members?.length > 0 && (
+                            <Caption1 style={{ color: tokens.colorNeutralForeground3, marginLeft: '34px' }}>
+                              {p.members.join(' · ')}
+                            </Caption1>
+                          )}
+                        </span>
                         <TableCellActions>
                           <ImagePicker compact name={p.name} value={p.image ?? null} onChange={(v) => setPlayerImage(p.id, v)} />
                           {tournament.status === 'upcoming' && (
