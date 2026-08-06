@@ -20,6 +20,7 @@ export function recordHeat(matches, order) {
 export function computeStandings(players, matches, table = null) {
   const stats = Object.fromEntries(players.map(p => [p.id, { races: 0, wins: 0, pts: 0 }]))
   for (const m of matches) {
+    if (m.pendingEntry) continue // unconfirmed participant reports don't score
     m.order.forEach((playerId, position) => {
       const s = stats[playerId]
       if (!s) return

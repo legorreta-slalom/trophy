@@ -11,12 +11,13 @@ import { decryptToken } from '../pinCrypto.js'
 // publish settings, enabling result entry + auto-sync like the host.
 export default function UnlockDialog({ open, onClose, onUnlocked }) {
   const [pin, setPin] = useState('')
+  const [name, setName] = useState('')
   const [error, setError] = useState('')
 
   async function unlock() {
     try {
       const token = await decryptToken(getAccess(), pin.trim())
-      savePublishSettings({ token, pin: '' })
+      savePublishSettings({ token, pin: '', role: 'participant', reporterName: name.trim() })
       onUnlocked?.()
       onClose()
     } catch {
@@ -30,13 +31,18 @@ export default function UnlockDialog({ open, onClose, onUnlocked }) {
         <DialogBody>
           <DialogTitle>Report results</DialogTitle>
           <DialogContent>
-            <Field label="PIN" hint="Ask the tournament host for the PIN." validationMessage={error || undefined}>
-              <Input
-                value={pin}
-                onChange={(_, { value }) => { setPin(value); setError('') }}
-                onKeyDown={e => e.key === 'Enter' && pin.trim() && unlock()}
-              />
-            </Field>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <Field label="Your name" hint="Shown next to results you report.">
+                <Input value={name} onChange={(_, { value }) => setName(value)} />
+              </Field>
+              <Field label="PIN" hint="Ask the tournament host for the PIN." validationMessage={error || undefined}>
+                <Input
+                  value={pin}
+                  onChange={(_, { value }) => { setPin(value); setError('') }}
+                  onKeyDown={e => e.key === 'Enter' && pin.trim() && unlock()}
+                />
+              </Field>
+            </div>
           </DialogContent>
           <DialogActions>
             <DialogTrigger disableButtonEnhancement>

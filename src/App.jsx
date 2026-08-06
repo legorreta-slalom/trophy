@@ -122,7 +122,7 @@ function PublishDialog({ open, onClose }) {
   function set(field, value) { setSettings(s => ({ ...s, [field]: value })) }
 
   async function publish() {
-    savePublishSettings(settings)
+    savePublishSettings({ ...settings, role: 'host' })
     setState({ phase: 'publishing' })
     try {
       await flush()

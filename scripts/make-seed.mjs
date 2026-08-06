@@ -6,6 +6,8 @@ import * as SW from '../src/engines/swiss.js'
 import * as GK from '../src/engines/groupKnockout.js'
 import * as SP from '../src/engines/seasonPlayoffs.js'
 import * as CF from '../src/engines/conferenceFinals.js'
+import * as Racing from '../src/engines/racing.js'
+import * as DE from '../src/engines/doubleElimination.js'
 
 const players = (names, prefix) => names.map((name, i) => ({ id: `${prefix}${i + 1}`, name }))
 const NAMES = ['Alice', 'Bob', 'Carol', 'Dave', 'Eve', 'Frank', 'Grace', 'Hank']
@@ -108,6 +110,42 @@ const tournaments = []
   tournaments.push({
     id: 'demo-cf', name: 'NBA Foosball League', gameId: 'game-foos', format: 'conference-finals',
     startDate: '2026-09-01', endDate: '2026-12-15', status: 'active',
+    players: p, matches: m,
+  })
+}
+
+// Racing — Mario Kart points, three heats in
+{
+  const p = players(NAMES.slice(0, 4), 'race')
+  let m = Racing.recordHeat([], ['race3', 'race1', 'race4', 'race2'])
+  m = Racing.recordHeat(m, ['race1', 'race3', 'race2', 'race4'])
+  m = Racing.recordHeat(m, ['race1', 'race2', 'race3', 'race4'])
+  tournaments.push({
+    id: 'demo-race', name: 'Mario Kart Grand Prix', gameId: 'game-foos', format: 'racing',
+    startDate: '2026-08-01', endDate: '2026-08-31', status: 'active',
+    positionPoints: [15, 12, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1],
+    players: p, matches: m,
+  })
+}
+
+// Double elimination — grand final reset pending
+{
+  const p = players(NAMES.slice(0, 4), 'de')
+  const play = (matches, bracket, round, position, winnerId) =>
+    DE.withResetIfNeeded(DE.propagate(matches.map(x =>
+      x.bracket === bracket && x.round === round && x.position === position
+        ? { ...x, result: { winnerId } } : x
+    )))
+  let m = DE.generate(p)
+  m = play(m, 'W', 1, 0, 'de1')
+  m = play(m, 'W', 1, 1, 'de2')
+  m = play(m, 'L', 1, 0, 'de4')
+  m = play(m, 'W', 2, 0, 'de1')
+  m = play(m, 'L', 2, 0, 'de2')
+  m = play(m, 'GF', 1, 0, 'de2') // L champ wins → reset match pending
+  tournaments.push({
+    id: 'demo-de', name: 'Smash Bros Double Elim', gameId: 'game-chess', format: 'double-elimination',
+    startDate: '2026-08-01', endDate: '2026-08-31', status: 'active',
     players: p, matches: m,
   })
 }

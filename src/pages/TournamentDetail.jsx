@@ -170,6 +170,32 @@ function ScorePopover({ p1Name, p2Name, allowDraw, onSave }) {
 
 const scoreLabel = (result) => result?.score ? ` ${result.score[0]}–${result.score[1]}` : ''
 
+// Participant-reported entry awaiting host confirmation (#44)
+function PendingEntry({ match, playerById, onConfirm, onReject }) {
+  const pe = match.pendingEntry
+  const p = pe.payload
+  const winnerName = !p ? null
+    : p.winnerId ? playerById[p.winnerId]?.name
+    : p.winner === 'draw' ? null
+    : playerById[p.winner === 'player1' ? match.player1Id : match.player2Id]?.name
+  const summary = !p ? 'Heat reported'
+    : `${winnerName ? `${winnerName} wins` : 'Draw'}${scoreLabel(p)}`
+
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <Caption1 style={{ color: tokens.colorPaletteDarkOrangeForeground1 }}>
+        ⏳ {summary} — {pe.reportedBy}
+      </Caption1>
+      {onConfirm && (
+        <>
+          <Button size="small" appearance="primary" onClick={() => onConfirm(match.id)}>Confirm</Button>
+          <Button size="small" appearance="subtle" onClick={() => onReject(match.id)}>Reject</Button>
+        </>
+      )}
+    </span>
+  )
+}
+
 function roundLabel(round, maxRound) {
   if (round === maxRound) return 'Final'
   if (round === maxRound - 1) return 'Semi-final'
@@ -177,7 +203,7 @@ function roundLabel(round, maxRound) {
   return `Round ${round}`
 }
 
-function RoundRobinView({ matches, playerById, onResult, onClear }) {
+function RoundRobinView({ matches, playerById, onResult, onClear, onConfirm, onReject }) {
   const styles = useStyles()
   const rounds = {}
   for (const m of matches) {
@@ -209,6 +235,8 @@ function RoundRobinView({ matches, playerById, onResult, onClear }) {
                       <Button appearance="subtle" size="small" icon={<DismissRegular />} aria-label="Clear result" onClick={() => onClear(m.id)} />
                     )}
                   </span>
+                ) : m.pendingEntry ? (
+                  <PendingEntry match={m} playerById={playerById} onConfirm={onConfirm} onReject={onReject} />
                 ) : onResult ? (
                   <div className={styles.matchResult}>
                     <Button size="small" onClick={() => onResult(m.id, { winner: 'player1' })}>{p1?.name}</Button>
@@ -271,7 +299,7 @@ function StandingsView({ players, matches, points }) {
   )
 }
 
-function LeaderboardView({ tournament, playerById, onRecord, onDelete }) {
+function LeaderboardView({ tournament, playerById, onRecord, onDelete, onConfirm, onReject }) {
   const styles = useStyles()
   const [p1Id, setP1Id] = useState('')
   const [p2Id, setP2Id] = useState('')
@@ -358,10 +386,16 @@ function LeaderboardView({ tournament, playerById, onRecord, onDelete }) {
                 <Body1 className={m.result?.winner === 'player2' ? styles.resultWinner : ''}><PlayerLabel player={p2} /></Body1>
               </div>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Caption1>{`${m.result.winner === 'draw' ? 'Draw' : m.result.winner === 'player1' ? `${p1?.name} wins` : `${p2?.name} wins`}${scoreLabel(m.result)}`}</Caption1>
-                {onDelete && (
-                  <Button appearance="subtle" size="small" icon={<DismissRegular />} aria-label="Delete result" onClick={() => onDelete(m.id)} />
-                )}
+                {m.result ? (
+                  <>
+                    <Caption1>{`${m.result.winner === 'draw' ? 'Draw' : m.result.winner === 'player1' ? `${p1?.name} wins` : `${p2?.name} wins`}${scoreLabel(m.result)}`}</Caption1>
+                    {onDelete && (
+                      <Button appearance="subtle" size="small" icon={<DismissRegular />} aria-label="Delete result" onClick={() => onDelete(m.id)} />
+                    )}
+                  </>
+                ) : m.pendingEntry ? (
+                  <PendingEntry match={m} playerById={playerById} onConfirm={onConfirm} onReject={onReject} />
+                ) : null}
               </span>
             </div>
           )
@@ -374,7 +408,7 @@ function LeaderboardView({ tournament, playerById, onRecord, onDelete }) {
 const MEDALS = ['🥇', '🥈', '🥉']
 const placeLabel = (i) => MEDALS[i] ?? `${i + 1}.`
 
-function RaceView({ tournament, playerById, onRecord, onDelete }) {
+function RaceView({ tournament, playerById, onRecord, onDelete, onConfirm, onReject }) {
   const styles = useStyles()
   const [order, setOrder] = useState([])
   const remaining = tournament.players.filter(p => !order.includes(p.id))
@@ -423,7 +457,9 @@ function RaceView({ tournament, playerById, onRecord, onDelete }) {
               <Body1Strong style={{ marginRight: '8px' }}>Heat {m.heat}</Body1Strong>
               <Body1>{m.order.map((id, i) => `${placeLabel(i)} ${playerById[id]?.name ?? '?'}`).join('  ')}</Body1>
             </div>
-            {onDelete && (
+            {m.pendingEntry ? (
+              <PendingEntry match={m} playerById={playerById} onConfirm={onConfirm} onReject={onReject} />
+            ) : onDelete && (
               <Button appearance="subtle" size="small" icon={<DismissRegular />} aria-label="Delete heat" onClick={() => onDelete(m.id)} />
             )}
           </div>
@@ -464,7 +500,7 @@ function RaceStandingsView({ tournament }) {
   )
 }
 
-function DoubleElimView({ tournament, playerById, onResult }) {
+function DoubleElimView({ tournament, playerById, onResult, onConfirm, onReject }) {
   const section = (bracket) => tournament.matches.filter(m => m.bracket === bracket)
   return (
     <>
@@ -473,6 +509,8 @@ function DoubleElimView({ tournament, playerById, onResult }) {
         matches={section('W')}
         playerById={playerById}
         onResult={onResult}
+        onConfirm={onConfirm}
+        onReject={onReject}
         labelFn={(r, max) => r === max ? 'WB Final' : `WB Round ${r}`}
       />
       <Title3 style={{ display: 'block', margin: '20px 0 8px' }}>Losers bracket</Title3>
@@ -480,6 +518,8 @@ function DoubleElimView({ tournament, playerById, onResult }) {
         matches={section('L')}
         playerById={playerById}
         onResult={onResult}
+        onConfirm={onConfirm}
+        onReject={onReject}
         labelFn={(r, max) => r === max ? 'LB Final' : `LB Round ${r}`}
       />
       <Title3 style={{ display: 'block', margin: '20px 0 8px' }}>Grand final</Title3>
@@ -487,13 +527,15 @@ function DoubleElimView({ tournament, playerById, onResult }) {
         matches={section('GF')}
         playerById={playerById}
         onResult={onResult}
+        onConfirm={onConfirm}
+        onReject={onReject}
         labelFn={(r) => r === 2 ? 'Bracket reset' : 'Grand final'}
       />
     </>
   )
 }
 
-function GroupsView({ tournament, playerById, onResult, onClear, groupLabel = (g) => `Group ${g}` }) {
+function GroupsView({ tournament, playerById, onResult, onClear, onConfirm, onReject, groupLabel = (g) => `Group ${g}` }) {
   const styles = useStyles()
   return (
     <>
@@ -507,6 +549,8 @@ function GroupsView({ tournament, playerById, onResult, onClear, groupLabel = (g
                 playerById={playerById}
                 onResult={onResult}
                 onClear={onClear}
+                onConfirm={onConfirm}
+                onReject={onReject}
               />
             </div>
             <div style={{ flex: '0 1 420px' }}>
@@ -523,7 +567,7 @@ function GroupsView({ tournament, playerById, onResult, onClear, groupLabel = (g
   )
 }
 
-function BracketView({ matches, playerById, onResult, onClear, labelFn = roundLabel }) {
+function BracketView({ matches, playerById, onResult, onClear, onConfirm, onReject, labelFn = roundLabel }) {
   const styles = useStyles()
   if (!matches.length) return null
 
@@ -546,7 +590,7 @@ function BracketView({ matches, playerById, onResult, onClear, labelFn = roundLa
                 const p1 = m.player1Id ? playerById[m.player1Id] : null
                 const p2 = m.player2Id ? playerById[m.player2Id] : null
                 const winnerId = m.result?.winnerId
-                const canEnter = !m.result && p1 && p2 && onResult
+                const canEnter = !m.result && !m.pendingEntry && p1 && p2 && onResult
 
                 return (
                   <div key={m.id} className={styles.bracketSlot}>
@@ -589,6 +633,11 @@ function BracketView({ matches, playerById, onResult, onClear, labelFn = roundLa
                       {m.result && onClear && p1 && p2 && (
                         <div style={{ display: 'flex', justifyContent: 'center', padding: '2px', backgroundColor: tokens.colorNeutralBackground2 }}>
                           <Button appearance="subtle" size="small" icon={<DismissRegular />} onClick={() => onClear(m.id)}>Clear</Button>
+                        </div>
+                      )}
+                      {!m.result && m.pendingEntry && (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '4px', backgroundColor: tokens.colorNeutralBackground2 }}>
+                          <PendingEntry match={m} playerById={playerById} onConfirm={onConfirm} onReject={onReject} />
                         </div>
                       )}
                     </div>
@@ -714,13 +763,16 @@ export default function TournamentDetail() {
     save({ ...tournament, matches: SW.generateNextRound(tournament.players, tournament.matches, tournament.points) })
   }
 
-  function handleDEResult(matchId, result) {
-    const updated = applyBracketEntry(tournament.matches, matchId, result)
-    save({ ...tournament, matches: DE.withResetIfNeeded(DE.propagate(updated)) })
-  }
+  const handleDEResult = (matchId, result) => submitEntry('bracket', matchId, result)
 
   function handleRecordHeat(order) {
-    save({ ...tournament, matches: Racing.recordHeat(tournament.matches, order) })
+    const settings = getPublishSettings()
+    const matches = Racing.recordHeat(tournament.matches, order)
+    if (settings.role === 'participant') {
+      const added = matches[matches.length - 1]
+      added.pendingEntry = { kind: 'created', reportedBy: settings.reporterName || 'participant' }
+    }
+    save({ ...tournament, matches })
   }
 
   function handleDeleteHeat(matchId) {
@@ -728,7 +780,13 @@ export default function TournamentDetail() {
   }
 
   function handleLeaderboardRecord(player1Id, player2Id, result) {
-    const match = { id: crypto.randomUUID(), round: 1, player1Id, player2Id, result }
+    const settings = getPublishSettings()
+    const match = settings.role === 'participant'
+      ? {
+          id: crypto.randomUUID(), round: 1, player1Id, player2Id, result: null,
+          pendingEntry: { kind: 'created', payload: result, reportedBy: settings.reporterName || 'participant' },
+        }
+      : { id: crypto.randomUUID(), round: 1, player1Id, player2Id, result }
     save({ ...tournament, matches: [...tournament.matches, match] })
   }
 
@@ -752,10 +810,7 @@ export default function TournamentDetail() {
     save({ ...tournament, players })
   }
 
-  function handleRRResult(matchId, result) {
-    const matches = tournament.matches.map(m => m.id === matchId ? { ...m, result } : m)
-    save({ ...tournament, matches })
-  }
+  const handleRRResult = (matchId, result) => submitEntry('plain', matchId, result)
 
   // Bo1: the click IS the match result. BoN: it records one game; the match
   // resolves when someone reaches the needed win count.
@@ -766,16 +821,68 @@ export default function TournamentDetail() {
       : matches.map(m => m.id === matchId ? { ...m, result } : m)
   }
 
-  function handleSEResult(matchId, result) {
-    save({ ...tournament, matches: SE.advanceWinners(applyBracketEntry(tournament.matches, matchId, result)) })
+  const applyPlain = (matches, matchId, payload) =>
+    matches.map(m => m.id === matchId ? { ...m, result: payload } : m)
+
+  function applyBracket(matches, matchId, payload) {
+    if (tournament.format === 'double-elimination') {
+      return DE.withResetIfNeeded(DE.propagate(applyBracketEntry(matches, matchId, payload)))
+    }
+    if (tournament.format === 'single-elimination') {
+      return SE.advanceWinners(applyBracketEntry(matches, matchId, payload))
+    }
+    const updated = applyBracketEntry(matches, matchId, payload)
+    const ko = SE.advanceWinners(updated.filter(m => m.phase === 'knockout'))
+    return [...updated.filter(m => m.phase !== 'knockout'), ...ko]
   }
 
-  // Knockout results in group-knockout: advance winners within the knockout subset only.
-  function handleKOResult(matchId, result) {
-    const updated = applyBracketEntry(tournament.matches, matchId, result)
-    const ko = SE.advanceWinners(updated.filter(m => m.phase === 'knockout'))
-    save({ ...tournament, matches: [...updated.filter(m => m.phase !== 'knockout'), ...ko] })
+  // Participant entries land as pending until the host confirms (#44);
+  // host entries apply immediately.
+  function submitEntry(kind, matchId, payload) {
+    const settings = getPublishSettings()
+    if (settings.role === 'participant') {
+      save({
+        ...tournament,
+        matches: tournament.matches.map(m => m.id === matchId
+          ? { ...m, pendingEntry: { kind, payload, reportedBy: settings.reporterName || 'participant' } }
+          : m),
+      })
+    } else {
+      save({ ...tournament, matches: (kind === 'bracket' ? applyBracket : applyPlain)(tournament.matches, matchId, payload) })
+    }
   }
+
+  function confirmPending(matchId) {
+    const m = tournament.matches.find(x => x.id === matchId)
+    const { kind, payload } = m.pendingEntry
+    const stripped = tournament.matches.map(x => {
+      if (x.id !== matchId) return x
+      const { pendingEntry: _drop, ...rest } = x
+      return rest
+    })
+    const matches =
+      kind === 'plain' ? applyPlain(stripped, matchId, payload)
+      : kind === 'bracket' ? applyBracket(stripped, matchId, payload)
+      // 'created': the match itself is the data (heat); leaderboard entries carry a payload result
+      : payload ? applyPlain(stripped, matchId, payload)
+      : stripped
+    save({ ...tournament, matches })
+  }
+
+  function rejectPending(matchId) {
+    const m = tournament.matches.find(x => x.id === matchId)
+    const matches = m.pendingEntry.kind === 'created'
+      ? tournament.matches.filter(x => x.id !== matchId)
+      : tournament.matches.map(x => {
+          if (x.id !== matchId) return x
+          const { pendingEntry: _drop, ...rest } = x
+          return rest
+        })
+    save({ ...tournament, matches })
+  }
+
+  const handleSEResult = (matchId, result) => submitEntry('bracket', matchId, result)
+  const handleKOResult = handleSEResult
 
   function handleClear(matchId) {
     save({ ...tournament, matches: tournament.matches.map(m => m.id === matchId ? { ...m, result: null } : m) })
@@ -832,6 +939,9 @@ export default function TournamentDetail() {
     : false
   )
   const advanceLabel = isGK ? 'Advance to knockout' : isSP ? 'Start playoffs' : 'Start finals'
+  const canModerate = tournament.status === 'active' && getPublishSettings().role !== 'participant'
+  const onConfirm = canModerate ? confirmPending : undefined
+  const onReject = canModerate ? rejectPending : undefined
 
   return (
     <>
@@ -975,6 +1085,8 @@ export default function TournamentDetail() {
             playerById={playerById}
             onRecord={handleLeaderboardRecord}
             onDelete={tournament.status === 'active' ? handleLBDelete : undefined}
+            onConfirm={onConfirm}
+            onReject={onReject}
           />
         )}
 
@@ -984,6 +1096,8 @@ export default function TournamentDetail() {
             playerById={playerById}
             onRecord={handleRecordHeat}
             onDelete={tournament.status === 'active' ? handleDeleteHeat : undefined}
+            onConfirm={onConfirm}
+            onReject={onReject}
           />
         )}
 
@@ -994,6 +1108,8 @@ export default function TournamentDetail() {
               playerById={playerById}
               onResult={tournament.status === 'active' ? handleRRResult : undefined}
               onClear={tournament.status === 'active' && !knockoutHasStarted ? handleClear : undefined}
+              onConfirm={onConfirm}
+              onReject={onReject}
             />
             {swissCanAdvance && (
               <Button appearance="primary" onClick={generateNextSwissRound}>
@@ -1021,6 +1137,8 @@ export default function TournamentDetail() {
             playerById={playerById}
             onResult={tournament.status === 'active' ? handleRRResult : undefined}
             onClear={tournament.status === 'active' && !knockoutHasStarted ? handleClear : undefined}
+            onConfirm={onConfirm}
+            onReject={onReject}
             groupLabel={isCF ? (g) => `${g} Conference` : undefined}
           />
         )}
@@ -1030,6 +1148,8 @@ export default function TournamentDetail() {
             tournament={tournament}
             playerById={playerById}
             onResult={tournament.status === 'active' ? handleDEResult : undefined}
+            onConfirm={onConfirm}
+            onReject={onReject}
           />
         )}
 
@@ -1039,6 +1159,8 @@ export default function TournamentDetail() {
             playerById={playerById}
             onResult={tournament.status === 'active' ? (isBracket ? handleSEResult : handleKOResult) : undefined}
             onClear={tournament.status === 'active' ? (isBracket ? handleSEClear : handleKOClear) : undefined}
+            onConfirm={onConfirm}
+            onReject={onReject}
           />
         )}
       </div>
