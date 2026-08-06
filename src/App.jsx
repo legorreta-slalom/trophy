@@ -270,10 +270,10 @@ export default function App() {
   return (
     <div className={styles.root}>
       <aside className={styles.sidebar}>
-        <div className={styles.logo}>
+        <NavLink to="/" className={styles.logo} style={{ textDecoration: 'none', color: 'inherit' }} aria-label="Home">
           <TrophyFilled style={{ fontSize: '22px', color: tokens.colorBrandForeground1 }} />
           <Title3>TROPHY</Title3>
-        </div>
+        </NavLink>
         <nav className={styles.nav}>
           <NavLink
             to="/"
@@ -308,6 +308,14 @@ export default function App() {
           >
             <Body1Strong>Activity</Body1Strong>
           </NavLink>
+          <a
+            href={`${import.meta.env.BASE_URL}kiosk`}
+            target="_blank"
+            rel="noreferrer"
+            className={styles.navLink}
+          >
+            <Body1Strong>Kiosk ↗</Body1Strong>
+          </a>
         </nav>
         <div className={styles.exportArea}>
           <SyncStatus />
