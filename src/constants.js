@@ -1,5 +1,6 @@
 export const FORMATS = [
   { value: 'single-elimination', label: 'Single Elimination' },
+  { value: 'double-elimination', label: 'Double Elimination' },
   { value: 'round-robin', label: 'Round Robin' },
   { value: 'swiss', label: 'Swiss' },
   { value: 'leaderboard', label: 'Leaderboard / Open' },

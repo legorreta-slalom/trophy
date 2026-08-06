@@ -6,6 +6,7 @@ import * as GK from './groupKnockout.js'
 import * as SP from './seasonPlayoffs.js'
 import * as CF from './conferenceFinals.js'
 import * as Racing from './racing.js'
+import * as DE from './doubleElimination.js'
 import { getChampion } from './champion.js'
 
 const players = (n) => Array.from({ length: n }, (_, i) => ({ id: `p${i + 1}`, name: `Player ${i + 1}` }))
@@ -155,6 +156,59 @@ describe('conference + finals', () => {
     for (const m of finals) {
       expect(confOf(m.player1Id)).toBe(confOf(m.player2Id))
     }
+  })
+})
+
+describe('double elimination', () => {
+  const play = (matches, bracket, round, position, winnerId) =>
+    DE.withResetIfNeeded(DE.propagate(matches.map(m =>
+      m.bracket === bracket && m.round === round && m.position === position
+        ? { ...m, result: { winnerId } } : m
+    )))
+
+  it('runs a 4-player bracket: drop, climb, reset, crown', () => {
+    let m = DE.generate(players(4))
+    // W1: p1 vs p4, p2 vs p3 (standard seeding)
+    m = play(m, 'W', 1, 0, 'p1')
+    m = play(m, 'W', 1, 1, 'p2')
+    const l1 = m.find(x => x.bracket === 'L' && x.round === 1)
+    expect([l1.player1Id, l1.player2Id].sort()).toEqual(['p3', 'p4'])
+    m = play(m, 'L', 1, 0, 'p4') // p3 eliminated
+    m = play(m, 'W', 2, 0, 'p1') // p2 drops to L2
+    const l2 = m.find(x => x.bracket === 'L' && x.round === 2)
+    expect([l2.player1Id, l2.player2Id].sort()).toEqual(['p2', 'p4'])
+    m = play(m, 'L', 2, 0, 'p2') // p4 eliminated
+    const gf = DE.grandFinal(m)
+    expect(gf.player1Id).toBe('p1') // W champ
+    expect(gf.player2Id).toBe('p2') // L champ
+    // L champ wins the grand final → reset match appears
+    m = play(m, 'GF', 1, 0, 'p2')
+    expect(DE.isComplete(m)).toBe(false)
+    expect(DE.resetMatch(m)).toBeTruthy()
+    m = play(m, 'GF', 2, 0, 'p1')
+    expect(DE.isComplete(m)).toBe(true)
+    expect(DE.getWinnerId(m)).toBe('p1')
+  })
+
+  it('W champion winning the grand final ends it without a reset', () => {
+    let m = DE.generate(players(4))
+    m = play(m, 'W', 1, 0, 'p1')
+    m = play(m, 'W', 1, 1, 'p2')
+    m = play(m, 'L', 1, 0, 'p3')
+    m = play(m, 'W', 2, 0, 'p1')
+    m = play(m, 'L', 2, 0, 'p3')
+    m = play(m, 'GF', 1, 0, 'p1')
+    expect(DE.resetMatch(m)).toBeUndefined()
+    expect(DE.isComplete(m)).toBe(true)
+    expect(DE.getWinnerId(m)).toBe('p1')
+  })
+
+  it('auto-resolves byes through the losers bracket (5 players)', () => {
+    const m = DE.generate(players(5))
+    // Three W1 byes mean an L1 match of two empties resolves itself
+    const emptyL1 = m.filter(x => x.bracket === 'L' && x.round === 1 && x.result?.winnerId === null)
+    expect(emptyL1.length).toBeGreaterThan(0)
+    expect(() => DE.propagate(m)).not.toThrow()
   })
 })
 

@@ -1,5 +1,6 @@
 import * as RR from './roundRobin.js'
 import * as Racing from './racing.js'
+import * as DE from './doubleElimination.js'
 
 // Winner of a finished tournament, or null while undecided.
 // Bracket formats: winner of the final. Standings formats: current leader.
@@ -9,6 +10,10 @@ export function getChampion(tournament) {
 
   if (format === 'racing') {
     return Racing.computeStandings(players, matches, tournament.positionPoints ?? null)[0] ?? null
+  }
+
+  if (format === 'double-elimination') {
+    return players.find(p => p.id === DE.getWinnerId(matches)) ?? null
   }
 
   const bracketMatches =

@@ -1,4 +1,4 @@
-function nextPow2(n) {
+export function nextPow2(n) {
   let p = 1
   while (p < n) p *= 2
   return p
@@ -7,7 +7,7 @@ function nextPow2(n) {
 // Standard bracket order: seed 1 and 2 in opposite halves, byes (bottom
 // seeds) land against top seeds, never against each other.
 // size 4 → [0,3,1,2], size 8 → [0,7,3,4,1,6,2,5]
-function bracketOrder(size) {
+export function bracketOrder(size) {
   let order = [0, 1]
   while (order.length < size) {
     const n = order.length * 2

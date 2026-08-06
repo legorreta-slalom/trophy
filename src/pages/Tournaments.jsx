@@ -32,7 +32,7 @@ const EMPTY_FORM = {
   bestOf: 1,
 }
 
-const BRACKET_FORMATS = ['single-elimination', 'group-knockout', 'season-playoffs', 'conference-finals']
+const BRACKET_FORMATS = ['single-elimination', 'double-elimination', 'group-knockout', 'season-playoffs', 'conference-finals']
 
 function presetFromTable(table) {
   if (!table) return 'linear'
@@ -268,7 +268,7 @@ export default function Tournaments() {
                   <Input type="date" value={form.endDate} onChange={(_, { value }) => set('endDate', value)} />
                 </Field>
               </div>
-              {!['single-elimination', 'racing'].includes(form.format) && (
+              {!['single-elimination', 'double-elimination', 'racing'].includes(form.format) && (
                 <div className={styles.formField}>
                   <Field label="Points (win / draw / loss)">
                     <div style={{ display: 'flex', gap: '8px' }}>

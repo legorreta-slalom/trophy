@@ -37,6 +37,7 @@ import * as GK from '../engines/groupKnockout.js'
 import * as SP from '../engines/seasonPlayoffs.js'
 import * as CF from '../engines/conferenceFinals.js'
 import * as Racing from '../engines/racing.js'
+import * as DE from '../engines/doubleElimination.js'
 
 const useStyles = makeStyles({
   header: {
@@ -463,6 +464,35 @@ function RaceStandingsView({ tournament }) {
   )
 }
 
+function DoubleElimView({ tournament, playerById, onResult }) {
+  const section = (bracket) => tournament.matches.filter(m => m.bracket === bracket)
+  return (
+    <>
+      <Title3 style={{ display: 'block', marginBottom: '8px' }}>Winners bracket</Title3>
+      <BracketView
+        matches={section('W')}
+        playerById={playerById}
+        onResult={onResult}
+        labelFn={(r, max) => r === max ? 'WB Final' : `WB Round ${r}`}
+      />
+      <Title3 style={{ display: 'block', margin: '20px 0 8px' }}>Losers bracket</Title3>
+      <BracketView
+        matches={section('L')}
+        playerById={playerById}
+        onResult={onResult}
+        labelFn={(r, max) => r === max ? 'LB Final' : `LB Round ${r}`}
+      />
+      <Title3 style={{ display: 'block', margin: '20px 0 8px' }}>Grand final</Title3>
+      <BracketView
+        matches={section('GF')}
+        playerById={playerById}
+        onResult={onResult}
+        labelFn={(r) => r === 2 ? 'Bracket reset' : 'Grand final'}
+      />
+    </>
+  )
+}
+
 function GroupsView({ tournament, playerById, onResult, onClear, groupLabel = (g) => `Group ${g}` }) {
   const styles = useStyles()
   return (
@@ -493,7 +523,7 @@ function GroupsView({ tournament, playerById, onResult, onClear, groupLabel = (g
   )
 }
 
-function BracketView({ matches, playerById, onResult, onClear }) {
+function BracketView({ matches, playerById, onResult, onClear, labelFn = roundLabel }) {
   const styles = useStyles()
   if (!matches.length) return null
 
@@ -510,7 +540,7 @@ function BracketView({ matches, playerById, onResult, onClear }) {
         const roundMatches = rounds[r].sort((a, b) => a.position - b.position)
         return (
           <div key={r} className={styles.bracketRound}>
-            <Caption1 className={styles.bracketRoundLabel}>{roundLabel(r, maxRound)}</Caption1>
+            <Caption1 className={styles.bracketRoundLabel}>{labelFn(r, maxRound)}</Caption1>
             <div className={styles.bracketMatches}>
               {roundMatches.map(m => {
                 const p1 = m.player1Id ? playerById[m.player1Id] : null
@@ -647,6 +677,7 @@ export default function TournamentDetail() {
     const { format, players, points } = tournament
     const matches =
       format === 'single-elimination' ? SE.generate(players)
+      : format === 'double-elimination' ? DE.generate(players)
       : format === 'swiss' ? SW.generateNextRound(players, [], points)
       : format === 'leaderboard' || format === 'racing' ? []
       : format === 'group-knockout' ? GK.generateGroups(players)
@@ -655,7 +686,7 @@ export default function TournamentDetail() {
       : RR.generate(players)
     save({ ...tournament, status: 'active', matches })
     setSelectedTab(
-      format === 'single-elimination' ? 'bracket'
+      format === 'single-elimination' || format === 'double-elimination' ? 'bracket'
       : format === 'group-knockout' || format === 'conference-finals' ? 'groups'
       : 'matches'
     )
@@ -673,6 +704,11 @@ export default function TournamentDetail() {
 
   function generateNextSwissRound() {
     save({ ...tournament, matches: SW.generateNextRound(tournament.players, tournament.matches, tournament.points) })
+  }
+
+  function handleDEResult(matchId, result) {
+    const updated = applyBracketEntry(tournament.matches, matchId, result)
+    save({ ...tournament, matches: DE.withResetIfNeeded(DE.propagate(updated)) })
   }
 
   function handleRecordHeat(order) {
@@ -754,7 +790,8 @@ export default function TournamentDetail() {
   const formatLabel = FORMATS.find(f => f.value === tournament.format)?.label ?? tournament.format
   const playerById = Object.fromEntries(tournament.players.map(p => [p.id, p]))
   const { format } = tournament
-  const isBracket = format === 'single-elimination'
+  const isDE = format === 'double-elimination'
+  const isBracket = format === 'single-elimination' || isDE
   const isSwiss = format === 'swiss'
   const isLeaderboard = format === 'leaderboard'
   const isGK = format === 'group-knockout'
@@ -763,9 +800,10 @@ export default function TournamentDetail() {
   const isRacing = format === 'racing'
   const isGrouped = isGK || isCF
   const hasStandings = !isBracket && !isGrouped
-  const minPlayers = isGK ? GK.MIN_PLAYERS : isSP ? SP.MIN_PLAYERS : isCF ? CF.MIN_PLAYERS : 2
+  const minPlayers = isGK ? GK.MIN_PLAYERS : isSP ? SP.MIN_PLAYERS : isCF ? CF.MIN_PLAYERS : isDE ? DE.MIN_PLAYERS : 2
   const complete =
-    isBracket ? SE.isComplete(tournament.matches)
+    isDE ? DE.isComplete(tournament.matches)
+    : isBracket ? SE.isComplete(tournament.matches)
     : isSwiss ? SW.isComplete(tournament.players, tournament.matches)
     : isLeaderboard ? tournament.matches.length > 0
     : isRacing ? Racing.isComplete(tournament.matches)
@@ -961,7 +999,15 @@ export default function TournamentDetail() {
           />
         )}
 
-        {selectedTab === 'bracket' && (
+        {selectedTab === 'bracket' && isDE && (
+          <DoubleElimView
+            tournament={tournament}
+            playerById={playerById}
+            onResult={tournament.status === 'active' ? handleDEResult : undefined}
+          />
+        )}
+
+        {selectedTab === 'bracket' && !isDE && (
           <BracketView
             matches={isBracket ? tournament.matches : GK.knockoutMatches(tournament.matches)}
             playerById={playerById}
