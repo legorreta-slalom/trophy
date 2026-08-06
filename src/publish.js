@@ -1,6 +1,7 @@
 import { getGames, getTournaments } from './store.js'
 import { encryptToken } from './pinCrypto.js'
 import { REPO, BRANCH } from './repo.js'
+import { tournamentIcs } from './ics.js'
 
 // Map of repo path → file content, used by both ZIP export and GitHub publish.
 // Files live under public/ so Vite copies them into the built site, where the
@@ -18,6 +19,8 @@ export async function buildDataFiles() {
   }
   for (const t of tournaments) {
     files[`public/data/tournaments/${t.id}.json`] = JSON.stringify(t, null, 2)
+    const ics = tournamentIcs(t)
+    if (ics) files[`public/data/calendar/${t.id}.ics`] = ics
   }
 
   // Participant self-reporting: ship the PAT encrypted with the host's PIN.

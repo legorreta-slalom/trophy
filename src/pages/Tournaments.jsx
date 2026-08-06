@@ -161,6 +161,16 @@ export default function Tournaments() {
     setPendingDelete(null)
   }
 
+  const today = new Date().toDateString()
+  const todayMatches = tournaments.flatMap(t =>
+    (t.matches ?? [])
+      .filter(m => m.scheduledAt && !m.result && new Date(m.scheduledAt).toDateString() === today)
+      .map(m => {
+        const name = (id) => t.players?.find(p => p.id === id)?.name ?? '?'
+        return { t, m, label: `${name(m.player1Id)} vs ${name(m.player2Id)}` }
+      })
+  ).sort((a, b) => a.m.scheduledAt.localeCompare(b.m.scheduledAt))
+
   const formValid = form.name.trim() && form.gameId && form.format && form.startDate && form.endDate
   const filteredGames = games.filter(g => g.name.toLowerCase().includes(form.gameInput.toLowerCase()))
   const showAddNew = form.gameInput.trim() &&
@@ -209,6 +219,25 @@ export default function Tournaments() {
         <Title2>Tournaments</Title2>
         <Button appearance="primary" icon={<AddRegular />} onClick={openNew}>New tournament</Button>
       </div>
+
+      {todayMatches.length > 0 && (
+        <>
+          <Title2 style={{ display: 'block', margin: '0 0 12px', fontSize: '20px' }}>Today</Title2>
+          <div style={{ marginBottom: '24px' }}>
+            {todayMatches.map(({ t, m, label }) => (
+              <div
+                key={m.id}
+                onClick={() => navigate(`/tournaments/${t.id}`)}
+                style={{ display: 'flex', gap: '10px', alignItems: 'baseline', padding: '6px 0', cursor: 'pointer' }}
+              >
+                <Body1Strong>{new Date(m.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Body1Strong>
+                <Body1>{label}</Body1>
+                <Caption1 style={{ color: tokens.colorNeutralForeground3 }}>{t.name}</Caption1>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {tournaments.length === 0 ? (
         <Body1>No tournaments yet. Create one to get started.</Body1>

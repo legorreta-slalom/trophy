@@ -12,11 +12,12 @@ import {
   Popover, PopoverTrigger, PopoverSurface,
   Avatar,
 } from '@fluentui/react-components'
-import { AddRegular, DeleteRegular, ChevronLeftRegular, DismissRegular, QrCodeRegular, ArrowUpRegular, ArrowDownRegular, VideoRegular, LinkRegular, CommentRegular, SendRegular } from '@fluentui/react-icons'
+import { AddRegular, DeleteRegular, ChevronLeftRegular, DismissRegular, QrCodeRegular, ArrowUpRegular, ArrowDownRegular, VideoRegular, LinkRegular, CommentRegular, SendRegular, CalendarClockRegular } from '@fluentui/react-icons'
 import { useEffect } from 'react'
 import QRCode from 'qrcode'
 import { getTournaments, saveTournament, getGames } from '../store.js'
 import { getAccess, getPublishSettings } from '../publish.js'
+import { tournamentIcs } from '../ics.js'
 import UnlockDialog from '../components/UnlockDialog.jsx'
 import ImagePicker from '../components/ImagePicker.jsx'
 
@@ -195,6 +196,29 @@ const WatchChip = ({ url }) => (
   </Button>
 )
 
+const fmtWhen = (iso) => new Date(iso).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+// Host-only: schedule a match (#49)
+function SchedulePopover({ value, onSave }) {
+  const [open, setOpen] = useState(false)
+  const [when, setWhen] = useState('')
+  return (
+    <Popover open={open} onOpenChange={(_, { open: o }) => { setOpen(o); if (o) setWhen(value ? value.slice(0, 16) : '') }} positioning="below-end">
+      <PopoverTrigger disableButtonEnhancement>
+        <Button size="small" appearance="subtle" icon={<CalendarClockRegular />} aria-label="Schedule match" />
+      </PopoverTrigger>
+      <PopoverSurface style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', padding: '12px' }}>
+        <Field label="Scheduled for">
+          <Input type="datetime-local" value={when} onChange={(_, { value: v }) => setWhen(v)} />
+        </Field>
+        <Button appearance="primary" size="small" onClick={() => { onSave(when ? new Date(when).toISOString() : null); setOpen(false) }}>
+          Save
+        </Button>
+      </PopoverSurface>
+    </Popover>
+  )
+}
+
 // Per-match comment thread (#46). Anyone unlocked can post; hosts can delete.
 function CommentsPopover({ match, onAdd, onDelete }) {
   const [open, setOpen] = useState(false)
@@ -280,7 +304,7 @@ function roundLabel(round, maxRound) {
   return `Round ${round}`
 }
 
-function RoundRobinView({ matches, playerById, onResult, onClear, onConfirm, onReject, onSetStream, onComment, onDeleteComment }) {
+function RoundRobinView({ matches, playerById, onResult, onClear, onConfirm, onReject, onSetStream, onComment, onDeleteComment, onSchedule }) {
   const styles = useStyles()
   const rounds = {}
   for (const m of matches) {
@@ -304,6 +328,10 @@ function RoundRobinView({ matches, playerById, onResult, onClear, onConfirm, onR
                   <Body1 className={m.result?.winner === 'player2' ? styles.resultWinner : ''}>
                     {m.player2Id === null ? 'Bye' : <PlayerLabel player={p2} />}
                   </Body1>
+                  {m.scheduledAt && !m.result && (
+                    <Caption1 style={{ color: tokens.colorNeutralForeground3 }}>📅 {fmtWhen(m.scheduledAt)}</Caption1>
+                  )}
+                  {onSchedule && !m.result && <SchedulePopover value={m.scheduledAt} onSave={(iso) => onSchedule(m.id, iso)} />}
                   {m.streamUrl && !m.result && <WatchChip url={m.streamUrl} />}
                   {onSetStream && !m.result && <LinkPopover value={m.streamUrl} onSave={(url) => onSetStream(m.id, url)} />}
                   {(onComment || m.comments?.length > 0) && (
@@ -929,6 +957,10 @@ export default function TournamentDetail() {
     })
   }
 
+  function handleSchedule(matchId, iso) {
+    save({ ...tournament, matches: tournament.matches.map(m => m.id === matchId ? { ...m, scheduledAt: iso ?? undefined } : m) })
+  }
+
   function handleSetStream(matchId, url) {
     save({ ...tournament, matches: tournament.matches.map(m => m.id === matchId ? { ...m, streamUrl: url ?? undefined } : m) })
   }
@@ -1095,6 +1127,21 @@ export default function TournamentDetail() {
           </div>
         </div>
         <div className={styles.headerActions}>
+          {tournamentIcs(tournament) && (
+            <Button
+              appearance="subtle"
+              icon={<CalendarClockRegular />}
+              aria-label="Download calendar"
+              onClick={() => {
+                const blob = new Blob([tournamentIcs(tournament)], { type: 'text/calendar' })
+                const a = document.createElement('a')
+                a.href = URL.createObjectURL(blob)
+                a.download = `${tournament.name}.ics`
+                a.click()
+                URL.revokeObjectURL(a.href)
+              }}
+            />
+          )}
           {tournament.streamUrl && <WatchChip url={tournament.streamUrl} />}
           <Button appearance="subtle" icon={<QrCodeRegular />} aria-label="Share QR" onClick={() => setShareOpen(true)} />
           {tournament.status === 'upcoming' && tournament.players.length >= minPlayers && (
@@ -1237,6 +1284,7 @@ export default function TournamentDetail() {
               onConfirm={onConfirm}
               onReject={onReject}
               onSetStream={canModerate ? handleSetStream : undefined}
+              onSchedule={canModerate ? handleSchedule : undefined}
               onComment={onComment}
               onDeleteComment={onDeleteComment}
             />
