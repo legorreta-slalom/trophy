@@ -1,12 +1,13 @@
 name: Deploy to GitHub Pages
 
+# Every push to main creates a run (visible in Actions), plus manual dispatch.
+# Data-only sync commits (public/data/**) skip the build inside the workflow —
+# GitHub's on.push paths-ignore filter proved unreliable once API-created data
+# commits started interleaving with code pushes, silently dropping runs.
 on:
   push:
     branches: [main]
-    # Data sync commits don't need a site rebuild — the app reads data
-    # from raw.githubusercontent, not from the deployed bundle.
-    paths-ignore:
-      - 'public/data/**'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,7 +19,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.diff.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "manual dispatch — deploying"
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
+            echo "no usable before-sha — deploying to be safe"
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CHANGED=$(git diff --name-only "$BEFORE" "$AFTER")
+          echo "changed files:"
+          echo "$CHANGED"
+          if echo "$CHANGED" | grep -qv '^public/data/'; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "data-only sync commit — skipping deploy"
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: changes
+    if: needs.changes.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
