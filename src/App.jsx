@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Routes, Route, NavLink } from 'react-router-dom'
+import { Routes, Route, NavLink, useLocation } from 'react-router-dom'
 import {
   makeStyles, tokens,
   Title3, Body1Strong, Body1, Caption1,
@@ -12,6 +12,8 @@ import Tournaments from './pages/Tournaments.jsx'
 import TournamentDetail from './pages/TournamentDetail.jsx'
 import Games from './pages/Games.jsx'
 import HallOfFame from './pages/HallOfFame.jsx'
+import Kiosk from './pages/Kiosk.jsx'
+import Activity from './pages/Activity.jsx'
 import JSZip from 'jszip'
 import { buildDataFiles, getPublishSettings, savePublishSettings, publishToGitHub, getAccess } from './publish.js'
 import { pullPublished } from './hydrate.js'
@@ -249,10 +251,21 @@ function SyncStatus() {
 
 export default function App() {
   const styles = useStyles()
+  const location = useLocation()
   const [publishOpen, setPublishOpen] = useState(false)
   const [unlockOpen, setUnlockOpen] = useState(false)
   const [pullOpen, setPullOpen] = useState(false)
   const [canReport, setCanReport] = useState(() => Boolean(getAccess()) && !getPublishSettings().token)
+
+  // Kiosk is chromeless — no sidebar, meant for a TV
+  if (location.pathname.startsWith('/kiosk')) {
+    return (
+      <Routes>
+        <Route path="/kiosk" element={<Kiosk />} />
+      </Routes>
+    )
+  }
+
   return (
     <div className={styles.root}>
       <aside className={styles.sidebar}>
@@ -285,6 +298,14 @@ export default function App() {
             }
           >
             <Body1Strong>Hall of Fame</Body1Strong>
+          </NavLink>
+          <NavLink
+            to="/activity"
+            className={({ isActive }) =>
+              `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`
+            }
+          >
+            <Body1Strong>Activity</Body1Strong>
           </NavLink>
         </nav>
         <div className={styles.exportArea}>
@@ -348,6 +369,7 @@ export default function App() {
           <Route path="/tournaments/:id" element={<TournamentDetail />} />
           <Route path="/games" element={<Games />} />
           <Route path="/hall-of-fame" element={<HallOfFame />} />
+          <Route path="/activity" element={<Activity />} />
         </Routes>
       </main>
     </div>
