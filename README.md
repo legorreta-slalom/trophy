@@ -2,7 +2,37 @@
 
 **T**racking **R**ivalries and **O**ffice **P**layoffs, **H**osted by **Y**ou
 
-Keep track of in-office tournaments — any game, any format, any scoring system — with zero backend and zero hosting costs.
+Run in-office tournaments — any game, any format, any scoring system — with zero backend and zero hosting costs. The GitHub repo you're looking at *is* the database.
+
+## Features
+
+**Eight tournament formats**
+
+| Format | What it is |
+|---|---|
+| Round Robin | Everyone plays everyone; standings by points |
+| Single Elimination | Classic bracket, byes auto-advance, seeded so 1 and 2 meet in the final |
+| Double Elimination | Winners + losers brackets, grand final with bracket reset |
+| Swiss | Paired by standings each round, no rematches, no elimination |
+| Leaderboard / Open | No schedule — record any result any time (office ladder) |
+| Racing / Heats | Tap racers in finishing order; Mario Kart / F1 / custom points tables |
+| Group + Knockout | World Cup style: group round robins → cross-seeded bracket |
+| Season + Playoffs / Conference + Finals | NFL/NBA style multi-phase leagues |
+
+**Running a tournament**
+- One-click result entry, optional scores (21–19, winner inferred), best-of-3/5 series in brackets
+- Result corrections with cascade-clearing in brackets; reopen finished tournaments
+- Custom win/draw/loss points per tournament; head-to-head tiebreakers
+- Match scheduling with a **Today** agenda and subscribable **.ics calendars**
+- Streaming/watch links on tournaments and matches; per-match comment threads
+- Teams as participants (rosters, logos); player avatars and tournament covers with initials fallback
+
+**The office layer**
+- **Hall of Fame** — championships, appearances, and live **Elo ratings** per game
+- **Player profiles** — all-time record, head-to-head vs every colleague, recent form
+- **Kiosk mode** (`/kiosk`) — chromeless rotating dashboard for the office TV
+- **Activity feed** — the repo's commit history as an in-app timeline
+- Dark mode (follows the OS), mobile layout, QR codes for phone-based reporting
 
 ## How It Works
 
@@ -10,47 +40,39 @@ TROPHY runs entirely in the browser. No server. No database. No infrastructure t
 
 | Layer | What it does |
 |---|---|
-| **localStorage** | Holds the active working state in your browser |
-| **JSON files (GitHub)** | Persistent source of truth, version-controlled |
-| **GitHub Pages** | Free, zero-config hosting |
+| **localStorage** | The working state in your browser (a write-through cache) |
+| **This repo** | Source of truth: JSON under `public/data/`, synced by batched commits |
+| **GitHub Pages** | Free hosting; fresh browsers hydrate from the published data |
 
-Create a tournament, add players, run rounds, track scores. When you're done, export the state as JSON and commit it to your repo. Next session picks up right where you left off.
+## Data Sync
 
-## Tech Stack
-
-- **React** — UI
-- **Vite** — build tool
-- **localStorage + GitHub JSON** — storage
-- **GitHub Pages** — hosting
+- The **host** sets a personal access token (`contents: write` on this repo) once in **Sync settings**. After that, changes batch into single commits automatically (~2 min quiet period, 10 min cap, or **Sync now**). The token never leaves the browser.
+- **Participants** self-report from their phones: scan the tournament's QR code, enter the **PIN** the host set, and report results — which land as *pending* until the host confirms. Under the hood the PIN decrypts the host's token (PBKDF2 → AES-GCM), shipped in `data/access.json`.
+- **Spectators** need nothing: anyone with the URL sees everything, read-only.
+- Concurrent writers are safe: conflicting syncs rebuild on the new head and retry.
+- **Pull latest** re-syncs a browser on demand; **Export data** downloads the full ZIP as a manual fallback.
 
 ## Running Locally
 
 ```bash
 npm install
-npm run dev
+npm run dev     # dev server
+npm test        # engine + sync test suite
+npm run lint    # oxlint
 ```
 
 ## Deploying
 
-Push to `main`. The GitHub Actions workflow builds and deploys to GitHub Pages automatically.
-
-## Data Sync
-
-This repo IS the backend. Tournament state lives in `public/data/` and syncs automatically:
-
-- Set a personal access token (`contents: write`) once in **Sync settings** — after that, changes batch into single commits (quiet period ~2 min, max age ~10 min, or **Sync now**). The token never leaves your browser.
-- Fresh browsers hydrate from the published data automatically; **Pull latest** re-syncs on demand.
-- Set an optional **Participant PIN** to let players self-report: the token ships encrypted (PBKDF2 → AES-GCM) in `data/access.json`, and the tournament's QR code (share button) deep-links phones straight to the PIN unlock.
-- **Export data** still downloads the full `trophy-data.zip` as a manual fallback.
+Push to `main` — the workflow lints, tests, builds, and deploys to GitHub Pages. Data-only sync commits skip the rebuild (the app reads data from raw.githubusercontent, not the bundle).
 
 ## Running Your Own
 
 Fork this repo — your fork becomes your backend:
 
 1. Change `REPO` in [src/repo.js](src/repo.js) to your fork
-2. Enable GitHub Pages (Actions build) in your fork's settings
+2. Enable GitHub Pages (source: GitHub Actions) in your fork's settings
 3. Push — the workflow deploys your instance
 
 ## Design Philosophy
 
-TROPHY is deliberately minimal. No auth, no cloud sync, no real-time multiplayer. The office is the network.
+YAGNI, KISS, DRY. Flat serializable data, no derived state stored, no clever tricks. The office is the network.
